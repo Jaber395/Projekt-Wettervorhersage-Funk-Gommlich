@@ -1,7 +1,15 @@
-FROM test:3.20.0-alpine
+FROM python:3.10-slim
 
-RUN echo 'Hallo aus Karims Test'
+WORKDIR /app
 
-EXPOSE 80
+# Kopiere die requirements.txt ins Container-Verzeichnis
+COPY requirements.txt .
 
-CMD [ "test", "g", "daemon off;" ]
+# Installiere Abhängigkeiten
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Kopiere alle Dateien aus dem aktuellen Verzeichnis ins Container-Verzeichnis
+COPY . /app/
+
+# Führe main.py aus, wenn der Container gestartet wird
+CMD ["python", "main.py"]
