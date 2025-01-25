@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Kopiere alle Dateien aus dem aktuellen Verzeichnis ins Container-Verzeichnis
-COPY . /app/
+COPY main.py .
 
 # Führe main.py aus, wenn der Container gestartet wird
 CMD ["python", "main.py"]
