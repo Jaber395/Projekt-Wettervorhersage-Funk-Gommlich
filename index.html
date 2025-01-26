@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klimadatenanalyse - Vertikale Ansicht</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        .header {
+            background-color: #004d99;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            padding: 0;
+            margin: 0;
+        }
+        .section_search {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            padding: 40px;
+            width: 100%;
+            clear: right;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+        }
+        .section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            padding: 40px;
+            width: 100%;
+            clear: right;
+            box-sizing: border-box;
+            display: block;
+            justify-content: space-between;
+        }
+        .section-content {
+            width: 55%;
+        }
+        .section-image {
+            width: 40%;
+            background-color: #e0e0e0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: #777;
+            text-align: center;
+        }
+        h2 {
+            margin-top: 0;
+            color: #004d99;
+            font-size: 1.8em;
+        }
+        .button {
+            background-color: #004d99;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            display: block;
+        }
+        .button:hover {
+            background-color: #003366;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            font-size: 1em;
+        }
+        .chart {
+            width: 100%;
+            height: 400px;
+            background-color: #f2f2f2;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #777;
+            font-size: 1.2em;
+        }
+        .input-field {
+            width: 60%;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Klimadatenanalyse</h1>
+    </div>
+    <div class="container">
+        <!-- Station Search Section -->
+        <div class="section_search">
+            <div class="section-content">
+                <h2>Station suchen</h2>
+                <label for="latitude">Geographische Breite:</label>
+                <input type="text" id="latitude" class="input-field" placeholder="z. B. 48.7758">
+                <label for="longitude">Geographische Länge:</label>
+                <input type="text" id="longitude" class="input-field" placeholder="z. B. 9.1829">
+                <label for="radius">Suchradius (km):</label>
+                <input type="number" id="radius" class="input-field" placeholder="z. B. 50">
+                <label for="number">Anzahl der Stationen:</label>
+                <input type="number" id="number" class="input-field" placeholder="z. B. 3">
+                <button class="button">Suchen</button>
+            </div>
+            <div class="section-image">
+                Platzhalterbild
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="section">
+            <h2>Suchergebnisse</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Station</th>
+                        <th>Koordinaten</th>
+                        <th>Distanz (km)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Station 1</td>
+                        <td>48.7758, 9.1829</td>
+                        <td>10</td>
+                    </tr>
+                    <tr>
+                        <td>Station 2</td>
+                        <td>48.7758, 9.1829</td>
+                        <td>20</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Details Section -->
+        <div class="section">
+            <h2>Stationsdetails</h2>
+            <div class="chart">Grafische Darstellung der Daten</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Jahr</th>
+                        <th>Min. Temperatur (°C)</th>
+                        <th>Max. Temperatur (°C)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2021</td>
+                        <td>-5</td>
+                        <td>25</td>
+                    </tr>
+                    <tr>
+                        <td>2022</td>
+                        <td>-4</td>
+                        <td>26</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
