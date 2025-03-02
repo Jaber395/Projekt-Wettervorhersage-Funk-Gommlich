@@ -41,7 +41,7 @@ ROOT_URLCONF = "wetterdaten.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [BASE_DIR / "templates"],  # hier befindet sich index.html
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -53,6 +53,9 @@ TEMPLATES = [
         },
     },
 ]
+
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 WSGI_APPLICATION = "wetterdaten.wsgi.application"
 
