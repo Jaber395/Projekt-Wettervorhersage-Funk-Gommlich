@@ -1,0 +1,62 @@
+[
+    {
+        "name": "Station 1",
+        "latitude": 48.7758,
+        "longitude": 9.1829,
+        "temperature": { "Jan": -2, "Feb": 0, "Mar": 5, "Apr": 10, "May": 15, "Jun": 20, "Jul": 25, "Aug": 24, "Sep": 18, "Oct": 12, "Nov": 5, "Dec": 0 }
+    },
+    {
+        "name": "Station 2",
+        "latitude": 50.1109,
+        "longitude": 8.6821,
+        "temperature": { "Jan": -1, "Feb": 1, "Mar": 6, "Apr": 11, "May": 16, "Jun": 21, "Jul": 26, "Aug": 25, "Sep": 19, "Oct": 13, "Nov": 6, "Dec": 1 }
+    },
+    {
+        "name": "Station 3",
+        "latitude": 52.5200,
+        "longitude": 13.4050,
+        "temperature": { "Jan": -3, "Feb": -1, "Mar": 4, "Apr": 9, "May": 14, "Jun": 19, "Jul": 24, "Aug": 23, "Sep": 17, "Oct": 11, "Nov": 4, "Dec": -1 }
+    },
+    {
+        "name": "Station 4",
+        "latitude": 53.5511,
+        "longitude": 9.9937,
+        "temperature": { "Jan": 0, "Feb": 2, "Mar": 7, "Apr": 12, "May": 17, "Jun": 22, "Jul": 27, "Aug": 26, "Sep": 20, "Oct": 14, "Nov": 7, "Dec": 2 }
+    },
+    {
+        "name": "Station 5",
+        "latitude": 48.1351,
+        "longitude": 11.5820,
+        "temperature": { "Jan": -2, "Feb": 0, "Mar": 5, "Apr": 10, "May": 15, "Jun": 20, "Jul": 25, "Aug": 24, "Sep": 18, "Oct": 12, "Nov": 5, "Dec": 0 }
+    },
+    {
+        "name": "Station 6",
+        "latitude": 47.9990,
+        "longitude": 7.8421,
+        "temperature": { "Jan": -1, "Feb": 1, "Mar": 6, "Apr": 11, "May": 16, "Jun": 21, "Jul": 26, "Aug": 25, "Sep": 19, "Oct": 13, "Nov": 6, "Dec": 1 }
+    },
+    {
+        "name": "Station 7",
+        "latitude": 49.3988,
+        "longitude": 8.6724,
+        "temperature": { "Jan": -2, "Feb": 0, "Mar": 5, "Apr": 10, "May": 15, "Jun": 20, "Jul": 25, "Aug": 24, "Sep": 18, "Oct": 12, "Nov": 5, "Dec": 0 }
+    },
+    {
+        "name": "Station 8",
+        "latitude": 51.2277,
+        "longitude": 6.7735,
+        "temperature": { "Jan": -1, "Feb": 1, "Mar": 6, "Apr": 11, "May": 16, "Jun": 21, "Jul": 26, "Aug": 25, "Sep": 19, "Oct": 13, "Nov": 6, "Dec": 1 }
+    },
+    {
+        "name": "Station 9",
+        "latitude": 50.9375,
+        "longitude": 6.9603,
+        "temperature": { "Jan": 0, "Feb": 2, "Mar": 7, "Apr": 12, "May": 17, "Jun": 22, "Jul": 27, "Aug": 26, "Sep": 20, "Oct": 14, "Nov": 7, "Dec": 2 }
+    },
+    {
+        "name": "Station 10",
+        "latitude": 54.3233,
+        "longitude": 10.1228,
+        "temperature": { "Jan": -3, "Feb": -1, "Mar": 4, "Apr": 9, "May": 14, "Jun": 19, "Jul": 24, "Aug": 23, "Sep": 17, "Oct": 11, "Nov": 4, "Dec": -1 }
+    }
+]
