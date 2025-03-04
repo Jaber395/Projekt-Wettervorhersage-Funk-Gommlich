@@ -2,6 +2,7 @@ import os
 import math
 import random
 import requests
+import gzip
 from flask import Flask, request, jsonify
 from bs4 import BeautifulSoup
 
@@ -131,7 +132,7 @@ def search_stations():
 @app.route("/get_station_data", methods=["GET"])
 def get_station_data():
     """
-    Gibt simulierte aggregierte Wetterdaten für eine Station zurück.
+    Gibt tatsächliche Wetterdaten aus den heruntergeladenen GHCN-Daten zurück.
     Erwartete Query-Parameter:
       - station_id: ID der Station
       - start_year: Startjahr (Standard 2010)
@@ -144,25 +145,54 @@ def get_station_data():
     except ValueError:
         return jsonify({"error": "Ungültige Jahresangaben"}), 400
 
-    # Überprüfen, ob die Station vorhanden ist
+    # Überprüfen, ob die Station existiert
     station = next((s for s in stations if s["id"] == station_id), None)
     if not station:
         return jsonify({"error": "Station nicht gefunden"}), 404
 
-    # Dummy-Daten generieren
-    annual_data = []
-    seasonal_data = []
+    # Wetterdaten aus den GHCN-Daten (.gz-Dateien) extrahieren
+    weather_data = []  # Liste für aufbereitete Wetterdaten
     for year in range(start_year, end_year + 1):
-        annual_min = round(random.uniform(-10, 5), 1)
-        annual_max = round(random.uniform(5, 30), 1)
-        annual_data.append({"year": year, "annual_min": annual_min, "annual_max": annual_max})
+        file_path = os.path.join(WEATHER_DATA_DIR, f"{year}.csv.gz")
+        if not os.path.exists(file_path):
+            continue  # Überspringen, wenn die Datei für das Jahr nicht existiert
 
-        seasons = ["Winter", "Spring", "Summer", "Autumn"]
-        season_vals = {season: {"min": round(random.uniform(-10, 0), 1), "max": round(random.uniform(0, 30), 1)} for
-                       season in seasons}
-        seasonal_data.append({"year": year, "seasons": season_vals})
+        with gzip.open(file_path, mode="rt", encoding="utf-8") as file:
+            for line in file:
+                # Zeilenverarbeitung nach GHCN-Datenschema
+                if line.startswith(station_id):  # Nur Daten dieser Station
+                    parts = line.split()
+                    date = parts[1]  # Datum im Format YYYYMMDD
+                    element = parts[2]  # Element-Typ (z.B. TMAX, TMIN, PRCP)
+                    value = int(parts[3]) / 10  # Wert (Skalierung, z.B. in °C)
 
-    return jsonify({"station": station, "annual_data": annual_data, "seasonal_data": seasonal_data})
+                    # Strukturierte Wetterdaten speichern (Gefiltert auf Element)
+                    weather_data.append({"date": date, "element": element, "value": value})
+
+    if not weather_data:
+        return jsonify({"error": "Keine Wetterdaten für den angegebenen Zeitraum gefunden"}), 404
+
+    # Die Wetterdaten nach Jahr und Element gruppieren
+    annual_data = {}
+    for entry in weather_data:
+        year = int(entry["date"][:4])  # Jahr aus dem Datum extrahieren
+        if entry["element"] in ["TMAX", "TMIN"]:  # Nur Temperaturdaten berücksichtigen
+            if year not in annual_data:
+                annual_data[year] = {"TMAX": [], "TMIN": []}
+            annual_data[year][entry["element"]].append(entry["value"])
+
+    # Ergebnisse aggregieren (Mittelwerte berechnen)
+    aggregated_data = []
+    for year, elements in annual_data.items():
+        tmax_avg = round(sum(elements["TMAX"]) / len(elements["TMAX"]), 1) if elements["TMAX"] else None
+        tmin_avg = round(sum(elements["TMIN"]) / len(elements["TMIN"]), 1) if elements["TMIN"] else None
+        aggregated_data.append({"year": year, "annual_max": tmax_avg, "annual_min": tmin_avg})
+
+    # Daten sortieren
+    aggregated_data.sort(key=lambda x: x["year"])
+
+    return jsonify({"station": station, "annual_data": aggregated_data})
+
 
 
 @app.route("/download_weather_data", methods=["GET"])
