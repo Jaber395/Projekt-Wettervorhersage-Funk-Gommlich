@@ -8,6 +8,7 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
+      - weather_data:/app/weather_data/  # Bindet das Volume ein
     env_file:
       - .env
     depends_on:
@@ -20,7 +21,7 @@ services:
       POSTGRES_DB: ${DATABASE_NAME}
       POSTGRES_USER: ${DATABASE_USERNAME}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-      DJANGO_SETTINGS_MODULE: wetterdaten.settings
+      DJANGO_SETTINGS_MODULE: my_docker_django_app.settings
     ports:
       - "5432:5432"
     volumes:
@@ -28,3 +29,4 @@ services:
 
 volumes:
   postgres_data:
+  weather_data:  # Wetterdaten-Volume definiert
