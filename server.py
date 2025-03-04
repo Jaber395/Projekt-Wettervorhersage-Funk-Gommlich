@@ -1,16 +1,21 @@
 import os
-import requests
-from flask import Flask, request, jsonify
 import math
 import random
+import requests
+from flask import Flask, request, jsonify
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-STATIONS_FILE = "ghcnd-stations.txt"
 STATIONS_URL = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt"
+STATIONS_FILE = "ghcnd-stations.txt"
+WEATHER_DATA_DIR = "weather_data"
+
+
+### Hilfsfunktionen ###
 
 def download_station_file():
-    """Lädt die Stationsdaten herunter, falls die Datei nicht existiert."""
+    """Lädt die Stationsdatei herunter, falls sie nicht existiert."""
     if not os.path.exists(STATIONS_FILE):
         print("Stationsdatei wird heruntergeladen...")
         response = requests.get(STATIONS_URL)
@@ -19,47 +24,87 @@ def download_station_file():
                 file.write(response.content)
             print("Download erfolgreich.")
         else:
-            print("Fehler beim Download:", response.status_code)
+            print("Fehler beim Herunterladen der Stationsdatei:", response.status_code)
+
 
 def parse_stations():
-    """Parst die heruntergeladene Stationsdatei und liefert eine Liste von Stationen zurück."""
+    """
+    Parst die heruntergeladene Stationsdatei und liefert eine Liste von Stationen zurück.
+    Jede Station ist ein Dictionary mit ID, Lat, Lon und Name.
+    """
     stations = []
+    if not os.path.exists(STATIONS_FILE):
+        print(f"Stationsdatei {STATIONS_FILE} wurde nicht gefunden.")
+        return stations
+
     with open(STATIONS_FILE, "r", encoding="utf-8") as f:
         for line in f:
-            # NOAA-Format (fest definierte Spalten):
-            # [0:11] Station-ID, [12:20] Latitude, [21:30] Longitude, [41:71] Stationsname
-            station_id = line[0:11].strip()
             try:
+                # NOAA-Format (fixe Spaltenbreiten)
+                station_id = line[0:11].strip()
                 lat = float(line[12:20].strip())
                 lon = float(line[21:30].strip())
+                station_name = line[41:71].strip()
+                stations.append({"id": station_id, "lat": lat, "lon": lon, "name": station_name})
             except ValueError:
                 continue
-            station_name = line[41:71].strip()
-            stations.append({"id": station_id, "lat": lat, "lon": lon, "name": station_name})
     return stations
 
-# Datei herunterladen (falls noch nicht vorhanden) und parsen
-download_station_file()
-stations = parse_stations()
+
+def download_all_weather_data():
+    """
+    Lädt die täglichen Wetterdaten von der NOAA-Website herunter und speichert sie im Ordner 'weather_data'.
+    """
+    base_url = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/"
+    response = requests.get(base_url)
+
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, "html.parser")
+        # Alle Links auf der Seite durchsuchen
+        links = soup.find_all("a", href=True)
+
+        # Ordner erstellen, um die Daten zu speichern
+        if not os.path.exists(WEATHER_DATA_DIR):
+            os.makedirs(WEATHER_DATA_DIR)
+
+        for link in links:
+            file_name = link["href"]
+            if file_name.endswith(".gz"):  # Nur .gz-Dateien herunterladen
+                file_url = base_url + file_name
+                print(f"Lade Datei herunter: {file_name}")
+
+                file_response = requests.get(file_url)
+                if file_response.status_code == 200:
+                    with open(f"{WEATHER_DATA_DIR}/{file_name}", "wb") as file:
+                        file.write(file_response.content)
+                    print(f"Datei {file_name} erfolgreich heruntergeladen.")
+                else:
+                    print(f"Fehler beim Herunterladen der Datei {file_name}: {file_response.status_code}")
+    else:
+        print("Fehler beim Abrufen der Website:", response.status_code)
+
 
 def haversine(lat1, lon1, lat2, lon2):
-    """Berechnet die Entfernung in Kilometern zwischen zwei Punkten anhand ihrer geographischen Koordinaten."""
+    """Berechnet die Entfernung zwischen zwei Punkten auf der Erde in Kilometern."""
     R = 6371  # Erdradius in km
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1))*math.cos(math.radians(lat2))*math.sin(dlon/2)**2
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
+
+
+### Endpunkte der Flask-API ###
 
 @app.route("/search_stations", methods=["GET"])
 def search_stations():
     """
     Sucht Stationen anhand geographischer Koordinaten, Suchradius und maximaler Anzahl.
-    Parameter (als Query-Parameter):
-      - lat: geographische Breite
-      - lon: geographische Länge
-      - radius: Suchradius in km (Standard: 50)
-      - max: maximale Anzahl der zurückzuliefernden Stationen (Standard: 10)
+    Erwartete Query-Parameter:
+      - lat: Breite
+      - lon: Länge
+      - radius: Radius in Kilometern (Standard 50 km)
+      - max: Maximale Anzahl (Standard 10)
     """
     try:
         lat = float(request.args.get("lat"))
@@ -69,28 +114,28 @@ def search_stations():
     except (TypeError, ValueError):
         return jsonify({"error": "Ungültige Parameter"}), 400
 
-    nearby = []
+    # Stationen durchsuchen
+    nearby_stations = []
     for station in stations:
         distance = haversine(lat, lon, station["lat"], station["lon"])
         if distance <= radius:
             station_copy = station.copy()
             station_copy["distance"] = round(distance, 2)
-            nearby.append(station_copy)
-    nearby.sort(key=lambda x: x["distance"])
-    return jsonify(nearby[:max_results])
+            nearby_stations.append(station_copy)
+
+    # Stationen sortieren und begrenzen
+    nearby_stations.sort(key=lambda x: x["distance"])
+    return jsonify(nearby_stations[:max_results])
+
 
 @app.route("/get_station_data", methods=["GET"])
 def get_station_data():
     """
-    Liefert (simulierte) aggregierte Wetterdaten für eine gewählte Station.
+    Gibt simulierte aggregierte Wetterdaten für eine Station zurück.
     Erwartete Query-Parameter:
       - station_id: ID der Station
-      - start_year: Startjahr (Standard: 2010)
-      - end_year: Endjahr (Standard: 2020)
-    Es werden Dummy-Daten für:
-      - Jährliche Mittelwerte (Minima und Maxima)
-      - Saisonale Werte (Winter, Spring, Summer, Autumn)
-    generiert.
+      - start_year: Startjahr (Standard 2010)
+      - end_year: Endjahr (Standard 2020)
     """
     station_id = request.args.get("station_id")
     try:
@@ -99,40 +144,42 @@ def get_station_data():
     except ValueError:
         return jsonify({"error": "Ungültige Jahresangaben"}), 400
 
-    # Überprüfen, ob die Station existiert
+    # Überprüfen, ob die Station vorhanden ist
     station = next((s for s in stations if s["id"] == station_id), None)
     if not station:
         return jsonify({"error": "Station nicht gefunden"}), 404
 
+    # Dummy-Daten generieren
     annual_data = []
     seasonal_data = []
     for year in range(start_year, end_year + 1):
-        # Dummy-Werte für jährliche Mittelwerte
-        annual_min = round(random.uniform(-20, 10), 1)
-        annual_max = round(random.uniform(10, 35), 1)
-        annual_data.append({
-            "year": year,
-            "annual_min": annual_min,
-            "annual_max": annual_max
-        })
+        annual_min = round(random.uniform(-10, 5), 1)
+        annual_max = round(random.uniform(5, 30), 1)
+        annual_data.append({"year": year, "annual_min": annual_min, "annual_max": annual_max})
 
-        # Dummy-Werte für saisonale Daten (4 meteorologische Jahreszeiten)
         seasons = ["Winter", "Spring", "Summer", "Autumn"]
-        season_vals = {}
-        for season in seasons:
-            season_min = round(random.uniform(-20, 10), 1)
-            season_max = round(random.uniform(10, 35), 1)
-            season_vals[season] = {"min": season_min, "max": season_max}
-        seasonal_data.append({
-            "year": year,
-            "seasons": season_vals
-        })
+        season_vals = {season: {"min": round(random.uniform(-10, 0), 1), "max": round(random.uniform(0, 30), 1)} for
+                       season in seasons}
+        seasonal_data.append({"year": year, "seasons": season_vals})
 
-    return jsonify({
-        "station": station,
-        "annual_data": annual_data,
-        "seasonal_data": seasonal_data
-    })
+    return jsonify({"station": station, "annual_data": annual_data, "seasonal_data": seasonal_data})
+
+
+@app.route("/download_weather_data", methods=["GET"])
+def download_weather_data():
+    """
+    Lädt alle täglichen Wetterdaten herunter und speichert sie in einem lokalen Ordner.
+    """
+    try:
+        download_all_weather_data()
+        return jsonify({"message": "Wetterdaten erfolgreich heruntergeladen"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Fehler beim Herunterladen der Wetterdaten: {str(e)}"}), 500
+
+
+### Initialisierung ###
+download_station_file()
+stations = parse_stations()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
