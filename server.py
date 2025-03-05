@@ -239,7 +239,7 @@ def download_weather_data():
     return jsonify({"message": "Wetterdaten erfolgreich heruntergeladen."}), 200
 
 
-### Initialisierung ###
+###Initalisierung###
 
 stations = parse_stations()
 
