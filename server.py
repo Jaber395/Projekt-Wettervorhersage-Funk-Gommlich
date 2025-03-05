@@ -1,22 +1,59 @@
 import os
 import math
+import requests
 import gzip
 from flask import Flask, request, jsonify
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 
-STATIONS_FILE = "ghcnd-stations.txt"  # Beispiel-Stationendatei
-WEATHER_DATA_DIR = "weather_data"  # Ordner für Wetterdaten
+STATIONS_URL = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt"
+BASE_WEATHER_URL = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/all/"
+STATIONS_FILE = "ghcnd-stations.txt"
+WEATHER_DATA_DIR = "ghcn_weather"
 
-# Stationen werden hier zwischengespeichert (nach dem Parsen)
-stations = []
+# Ordner für Wetterdaten anlegen
+os.makedirs(WEATHER_DATA_DIR, exist_ok=True)
+
+### 🔹 Hilfsfunktionen ###
+
+def download_station_file():
+    """Lädt die Stationsdatei herunter, falls sie nicht existiert."""
+    if not os.path.exists(STATIONS_FILE):
+        print("📥 Lade Stationsdatei herunter...")
+        try:
+            response = requests.get(STATIONS_URL, timeout=15)
+            response.raise_for_status()
+            with open(STATIONS_FILE, "wb") as file:
+                file.write(response.content)
+            print("✅ Stationsdatei erfolgreich gespeichert.")
+        except requests.exceptions.RequestException as e:
+            print("❌ Fehler beim Herunterladen der Stationsdatei:", e)
 
 
-### Hilfsfunktionen ###
+def parse_stations():
+    """Liest die `ghcnd-stations.txt` und speichert sie als Liste von Stationen."""
+    stations = []
+    if not os.path.exists(STATIONS_FILE):
+        print(f"❌ Stationsdatei {STATIONS_FILE} nicht gefunden!")
+        return stations
+
+    with open(STATIONS_FILE, "r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                station_id = line[0:11].strip()
+                lat = float(line[12:20].strip())
+                lon = float(line[21:30].strip())
+                station_name = line[41:71].strip()
+                stations.append({"id": station_id, "lat": lat, "lon": lon, "name": station_name})
+            except ValueError:
+                continue
+    return stations
+
 
 def haversine(lat1, lon1, lat2, lon2):
     """Berechnet die Entfernung zwischen zwei Punkten auf der Erde in Kilometern."""
-    R = 6371  # Erdradius in km
+    R = 6371
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
     a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
@@ -24,102 +61,122 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * c
 
 
-def parse_stations():
-    """
-    Parst die Datei mit den Stationen und gibt eine Liste mit Dictionaries zurück.
-    Jede Station enthält: ID, Latitude, Longitude und Name.
-    """
-    parsed_stations = []
-    if not os.path.exists(STATIONS_FILE):
-        print(f"Die Datei {STATIONS_FILE} wurde nicht gefunden. Keine Stationen geladen.")
-        return parsed_stations
+def download_weather_data(station_id):
+    """Lädt Wetterdaten für eine Station herunter und speichert sie."""
+    file_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.dly")
+    if os.path.exists(file_path):
+        print(f"📂 {station_id}.dly existiert bereits.")
+        return
 
-    with open(STATIONS_FILE, "r", encoding="utf-8") as file:
+    url = f"{BASE_WEATHER_URL}{station_id}.dly"
+    try:
+        response = requests.get(url, timeout=20, stream=True)
+        response.raise_for_status()
+        with open(file_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print(f"✅ Wetterdaten für {station_id} gespeichert.")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Fehler beim Download von {station_id}: {e}")
+
+
+def download_weather_data_for_stations(station_ids):
+    """Lädt Wetterdaten für mehrere Stationen parallel herunter."""
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        executor.map(download_weather_data, station_ids)
+
+def process_weather_data_for_station(station_id):
+    """
+    Verarbeitet die Wetterdaten für eine spezifische Station und gibt ein Array mit Temperaturdaten zurück.
+    """
+    station_data_dir = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
+    if not os.path.exists(station_data_dir):
+        return None, f"Keine Wetterdaten für Station {station_id} gefunden."
+
+    temperatures = []
+
+    # Wetterdaten für die Station verarbeiten
+    with gzip.open(station_data_dir, "rt", encoding="utf-8") as file:
         for line in file:
             try:
-                # NOAA Stationsdatei hat ein festes Format
-                station_id = line[0:11].strip()
-                lat = float(line[12:20].strip())
-                lon = float(line[21:30].strip())
-                station_name = line[41:71].strip()
-                parsed_stations.append({"id": station_id, "lat": lat, "lon": lon, "name": station_name})
-            except ValueError:
-                # Fehlerhafte Einträge überspringen
+                current_station_id = line[0:11].strip()
+                if current_station_id != station_id:
+                    continue
+
+                date = line[11:19].strip()
+                element = line[17:21].strip()
+                value = int(line[21:26].strip())
+
+                # Nur TMAX und TMIN verarbeiten
+                if element in ["TMAX", "TMIN"]:
+                    temperature = value / 10.0  # Skalierung von NOAA: Werte sind x10
+                    temperatures.append({
+                        "date": date, "type": element, "temperature": temperature
+                    })
+            except (ValueError, IndexError):
                 continue
-    print(f"{len(parsed_stations)} Stationen erfolgreich geladen.")
-    return parsed_stations
+
+    if not temperatures:
+        return None, f"Keine Temperaturdaten für Station {station_id} gefunden."
+
+    return temperatures, None
 
 
 ### API-Endpunkte ###
 
+
+### 🔹 Flask Endpunkte ###
+
 @app.route("/search_stations", methods=["GET"])
 def search_stations():
-    """
-    Sucht Stationen anhand geographischer Parameter und Suchradius.
-    Erwartet: lat, lon, radius (km), max (max. Ergebnisse).
-    """
+    """Sucht Wetterstationen in einem gegebenen Radius."""
     try:
         lat = float(request.args.get("lat"))
         lon = float(request.args.get("lon"))
-        radius = float(request.args.get("radius", 50))  # Standardradius: 50 km
-        max_results = int(request.args.get("max", 10))  # Standard: max. 10 Ergebnisse
+        radius = float(request.args.get("radius", 50))
+        max_results = int(request.args.get("max", 10))
     except (TypeError, ValueError):
         return jsonify({"error": "Ungültige Parameter"}), 400
 
-    # Entfernungen berechnen und filtern
-    nearby_stations = []
-    for station in stations:
-        distance = haversine(lat, lon, station["lat"], station["lon"])
-        if distance <= radius:
-            station_copy = station.copy()
-            station_copy["distance"] = round(distance, 2)
-            nearby_stations.append(station_copy)
-
-    # Ergebnisse sortieren und begrenzen
+    nearby_stations = [
+        {**station, "distance": round(haversine(lat, lon, station["lat"], station["lon"]), 2)}
+        for station in stations if haversine(lat, lon, station["lat"], station["lon"]) <= radius
+    ]
     nearby_stations.sort(key=lambda x: x["distance"])
-    return jsonify(nearby_stations[:max_results])
+    selected_stations = nearby_stations[:max_results]
+
+    station_ids = [station["id"] for station in selected_stations]
+    download_weather_data_for_stations(station_ids)
+
+    return jsonify(selected_stations)
 
 
 @app.route("/get_station_data", methods=["GET"])
 def get_station_data():
-    """
-    Gibt die Wetterdaten einer Station in einem bestimmten Zeitraum zurück.
-    Erwartet: station_id, start_year, end_year (Standardzeitraum: 2010-2020).
-    """
+    """Gibt gespeicherte Wetterdaten zurück."""
     station_id = request.args.get("station_id")
-    try:
-        start_year = int(request.args.get("start_year", 2010))
-        end_year = int(request.args.get("end_year", 2020))
-    except ValueError:
-        return jsonify({"error": "Ungültige Jahresangaben"}), 400
+    if not station_id:
+        return jsonify({"error": "Station-ID fehlt"}), 400
 
-    # Existiert die Station?
-    station = next((s for s in stations if s["id"] == station_id), None)
-    if not station:
-        return jsonify({"error": f"Station {station_id} nicht gefunden."}), 404
+    file_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.dly")
+    if not os.path.exists(file_path):
+        return jsonify({"error": f"Keine Wetterdaten für Station {station_id} gefunden."}), 404
 
-    # Beispieldaten für Wetterdaten (um echte Daten zu vermeiden)
-    weather_data = []
-    for year in range(start_year, end_year + 1):
-        weather_data.append({
-            "year": year,
-            "annual_max": 30.0,  # Beispiel-Maximaltemperatur
-            "annual_min": -5.0  # Beispiel-Minimaltemperatur
-        })
-
-    return jsonify({"station": station, "annual_data": weather_data})
-
+    with open(file_path, "r", encoding="utf-8") as f:
+        raw_data = f.readlines()
+    return jsonify({"station": station_id, "data": raw_data[:100]})  # Max 100 Zeilen für Übersicht
 
 @app.route("/download_weather_data", methods=["GET"])
 def download_weather_data():
     """
-    Simuliert den Download von Wetterdaten.
+    Lädt Wetterdaten für alle Stationen herunter.
     """
-    return jsonify({"message": "Wetterdaten erfolgreich heruntergeladen"}), 200
+    station_ids = [station["id"] for station in stations]
+    download_weather_data_for_stations(station_ids)
+    return jsonify({"message": "Wetterdaten erfolgreich heruntergeladen."}), 200
 
-
-### Anwendung initialisieren ###
-
+### 🔹 Initialisierung ###
+download_station_file()
 stations = parse_stations()
 
 if __name__ == "__main__":
