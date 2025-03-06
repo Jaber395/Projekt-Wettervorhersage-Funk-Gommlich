@@ -46,7 +46,7 @@ def parse_stations():
                 lat = float(line[12:20].strip())
                 lon = float(line[21:30].strip())
                 # Extraktion des vollständigen Stationsnamens (war: station_name = line[41:71].strip())
-                station_name = line[41:71].strip()
+                station_name = line[36:71].strip()
                 parsed_stations.append({"id": station_id, "lat": lat, "lon": lon, "name": station_name})
             except ValueError:
                 continue  # Skip faulty lines
