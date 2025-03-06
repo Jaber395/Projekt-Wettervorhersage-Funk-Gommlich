@@ -89,15 +89,27 @@ def test_process_weather_data_for_station(monkeypatch, tmpdir):
     """Testet die Funktion process_weather_data_for_station mit Mock-Daten."""
     # Temporäre Wetterdatei vorbereiten
     weather_file = tmpdir.join("USW00094728.dly")
+
+    # NOAA-Format beachten:
+    # Positionen: 0-11 Station ID, 11-15 Jahr, 15-17 Monat, 17-21 Element, dann Tageswerte
+    # Jeder Tageswert benötigt 8 Zeichen (5 für den Wert, 3 für Flags)
+    # Temperaturwerte werden als ganze Zahlen gespeichert und später durch 10 geteilt
+    # z.B. 123 wird zu 12.3°C, -56 wird zu -5.6°C
     weather_file.write(
-        "20220101TMAX 1234\n"
-        "20220101TMIN -567\n"
+        "USW00094728202201TMAX  123    234    345    456    567                                                                            \n"
+        "USW00094728202201TMIN  -56    -67    -78    -89    -90                                                                            "
     )
 
     monkeypatch.setattr('server.WEATHER_DATA_DIR', str(tmpdir))
     temps, error = process_weather_data_for_station("USW00094728")
 
     assert temps is not None
-    assert len(temps) > 0
     assert error is None
+    assert len(temps) > 0
 
+    # Optional: Überprüfe, ob die Werte korrekt umgerechnet wurden
+    for temp in temps:
+        if temp["type"] == "TMAX" and temp["date"] == "20220101":
+            assert temp["temperature"] == 12.3  # 123/10
+        elif temp["type"] == "TMIN" and temp["date"] == "20220101":
+            assert temp["temperature"] == -5.6  # -56/10
