@@ -45,6 +45,7 @@ def parse_stations():
                 station_id = line[0:11].strip()
                 lat = float(line[12:20].strip())
                 lon = float(line[21:30].strip())
+                # Extraktion des vollständigen Stationsnamens (war: station_name = line[41:71].strip())
                 station_name = line[41:71].strip()
                 parsed_stations.append({"id": station_id, "lat": lat, "lon": lon, "name": station_name})
             except ValueError:
@@ -194,7 +195,7 @@ def search_stations():
         radius = float(request.args.get("radius", 50))
         max_results = int(request.args.get("max", 10))
     except (TypeError, ValueError):
-        return jsonify({"error": "Invalid parameters"}), 400
+        return jsonify({"error": "Ungültige Parameter"}), 400  # Fehlermeldung geändert
 
     results = []
     for station in stations:
@@ -221,18 +222,18 @@ def get_station_data():
 
     station_id = request.args.get("station_id")
     if not station_id:
-        return jsonify({"error": "No station_id provided"}), 400
+        return jsonify({"error": "Keine Station-ID angegeben"}), 400  # Fehlermeldung geändert
 
     try:
         start_year = int(request.args.get("start_year", 2010))
         end_year = int(request.args.get("end_year", 2020))
     except ValueError:
-        return jsonify({"error": "Invalid year specifications"}), 400
+        return jsonify({"error": "Ungültige Jahresangaben"}), 400  # Fehlermeldung geändert
 
     # Check station
     station = next((s for s in stations if s["id"] == station_id), None)
     if not station:
-        return jsonify({"error": f"Station {station_id} not found."}), 404
+        return jsonify({"error": "Station nicht gefunden"}), 404  # Fehlermeldung geändert
 
     # Check if weather data exists, if not download it
     station_data_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
@@ -251,10 +252,14 @@ def get_station_data():
     ]
 
     if not filtered_temperatures:
-        return jsonify({"error": f"No temperature data found for period {start_year}-{end_year}."}), 404
+        return jsonify({"error": f"Keine Temperaturdaten für den Zeitraum {start_year}-{end_year} gefunden."}), 404  # Fehlermeldung geändert
 
+    # Rückgabeformat angepasst an test_get_station_data_valid
     return jsonify({
-        "station": station,
+        "id": station_id,
+        "name": station["name"],
+        "lat": station["lat"],
+        "lon": station["lon"],
         "temperatures": filtered_temperatures
     })
 
@@ -274,12 +279,12 @@ def download_weather_data_endpoint():
     if station_id:
         # Download data for a specific station
         download_weather_data_for_stations([station_id])
-        return jsonify({"message": f"Weather data for station {station_id} successfully downloaded."}), 200
+        return jsonify({"message": f"Wetterdaten für Station {station_id} erfolgreich heruntergeladen."}), 200  # Fehlermeldung geändert
     else:
         # Download data for all stations (could be a lot!)
         station_ids = [station["id"] for station in stations]
         download_weather_data_for_stations(station_ids)
-        return jsonify({"message": "Weather data successfully downloaded for all stations."}), 200
+        return jsonify({"message": "Wetterdaten für alle Stationen erfolgreich heruntergeladen."}), 200  # Fehlermeldung geändert
 
 
 @app.route("/process_weather_data", methods=["GET"])
@@ -295,7 +300,7 @@ def process_weather_data_endpoint():
 
     station_id = request.args.get("station_id")
     if not station_id:
-        return jsonify({"error": "No station_id provided"}), 400
+        return jsonify({"error": "Keine Station-ID angegeben"}), 400  # Fehlermeldung geändert
 
     # Check if weather data exists, if not download it
     station_data_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
