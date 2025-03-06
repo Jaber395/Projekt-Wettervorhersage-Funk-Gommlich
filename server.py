@@ -71,8 +71,6 @@ def download_weather_data_for_stations(station_ids):
         file_url = f"{BASE_WEATHER_URL}/{station_id}.dly"
         target_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
 
-        print(f"DEBUG: Attempting to download: {file_url}")
-
         # Only download if file doesn't exist
         if not os.path.exists(target_path):
             print(f"Downloading data for station {station_id}...")
@@ -222,6 +220,9 @@ def get_station_data():
         print(f"Loaded {len(stations)} stations.")
 
     station_id = request.args.get("station_id")
+    if not station_id:
+        return jsonify({"error": "No station_id provided"}), 400
+
     try:
         start_year = int(request.args.get("start_year", 2010))
         end_year = int(request.args.get("end_year", 2020))
@@ -232,6 +233,11 @@ def get_station_data():
     station = next((s for s in stations if s["id"] == station_id), None)
     if not station:
         return jsonify({"error": f"Station {station_id} not found."}), 404
+
+    # Check if weather data exists, if not download it
+    station_data_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
+    if not os.path.exists(station_data_path):
+        download_weather_data_for_stations([station_id])
 
     # Process weather data
     temperatures, error = process_weather_data_for_station(station_id)
@@ -290,6 +296,11 @@ def process_weather_data_endpoint():
     station_id = request.args.get("station_id")
     if not station_id:
         return jsonify({"error": "No station_id provided"}), 400
+
+    # Check if weather data exists, if not download it
+    station_data_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
+    if not os.path.exists(station_data_path):
+        download_weather_data_for_stations([station_id])
 
     temperatures, error = process_weather_data_for_station(station_id)
     if error:
