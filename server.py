@@ -46,7 +46,8 @@ def parse_stations():
                 lat = float(line[12:20].strip())
                 lon = float(line[21:30].strip())
                 # Extraktion des vollständigen Stationsnamens (war: station_name = line[41:71].strip())
-                parts = line[36:].strip().rsplit(maxsplit=2)  # Splittet nur die letzten beiden Werte (Bundesstaat, Land)
+                parts = line[36:].strip().rsplit(
+                    maxsplit=2)  # Splittet nur die letzten beiden Werte (Bundesstaat, Land)
                 station_name = " ".join(parts[:-2])  # Alles außer den letzten beiden Teilen ist der Name
                 parsed_stations.append({"id": station_id, "lat": lat, "lon": lon, "name": station_name})
             except ValueError:
@@ -103,17 +104,32 @@ def process_weather_data_for_station(station_id):
     Returns:
         tuple: (temperatures_list, error_message)
     """
-    station_data_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
+    # Prüfe zuerst für gz-Datei
+    station_data_path_gz = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
+    # Dann für dly-Datei
+    station_data_path_dly = os.path.join(WEATHER_DATA_DIR, f"{station_id}.dly")
 
-    # Check if data file exists
-    if not os.path.exists(station_data_path):
-        print(f"Error: Weather data for station {station_id} not found ({station_data_path})")
+    # Prüfe, ob eine der Dateien existiert
+    if os.path.exists(station_data_path_gz):
+        station_data_path = station_data_path_gz
+        is_gzipped = True
+    elif os.path.exists(station_data_path_dly):
+        station_data_path = station_data_path_dly
+        is_gzipped = False
+    else:
+        print(f"Error: Weather data for station {station_id} not found")
         return None, f"No weather data found for station {station_id}."
 
     temperatures = []
 
     try:
-        with gzip.open(station_data_path, "rt", encoding="utf-8") as file:
+        # Wähle die richtige Öffnungsmethode basierend auf dem Dateityp
+        if is_gzipped:
+            file_opener = lambda: gzip.open(station_data_path, "rt", encoding="utf-8")
+        else:
+            file_opener = lambda: open(station_data_path, "rt", encoding="utf-8")
+
+        with file_opener() as file:
             for line in file:
                 try:
                     # Parse NOAA format columns
@@ -253,7 +269,8 @@ def get_station_data():
     ]
 
     if not filtered_temperatures:
-        return jsonify({"error": f"Keine Temperaturdaten für den Zeitraum {start_year}-{end_year} gefunden."}), 404  # Fehlermeldung geändert
+        return jsonify({
+                           "error": f"Keine Temperaturdaten für den Zeitraum {start_year}-{end_year} gefunden."}), 404  # Fehlermeldung geändert
 
     # Rückgabeformat angepasst an test_get_station_data_valid
     return jsonify({
@@ -280,12 +297,14 @@ def download_weather_data_endpoint():
     if station_id:
         # Download data for a specific station
         download_weather_data_for_stations([station_id])
-        return jsonify({"message": f"Wetterdaten für Station {station_id} erfolgreich heruntergeladen."}), 200  # Fehlermeldung geändert
+        return jsonify({
+                           "message": f"Wetterdaten für Station {station_id} erfolgreich heruntergeladen."}), 200  # Fehlermeldung geändert
     else:
         # Download data for all stations (could be a lot!)
         station_ids = [station["id"] for station in stations]
         download_weather_data_for_stations(station_ids)
-        return jsonify({"message": "Wetterdaten für alle Stationen erfolgreich heruntergeladen."}), 200  # Fehlermeldung geändert
+        return jsonify(
+            {"message": "Wetterdaten für alle Stationen erfolgreich heruntergeladen."}), 200  # Fehlermeldung geändert
 
 
 @app.route("/process_weather_data", methods=["GET"])
