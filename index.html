@@ -14,6 +14,10 @@
     <script src="script.js"></script>
 </head>
 <body>
+    <div id="loadingOverlay">
+        <div class="loader"></div>
+        <p>Daten werden geladen...</p>
+    </div>
     <div class="header">
         <h1>Klimadatenanalyse</h1>
     </div>
@@ -54,7 +58,7 @@
         </div>
         <!-- Details Section -->
         <div class="section">
-            <h2>Stationsdetails</h2>
+            <h2 id="stationTitle">Stationsdetails</h2>
             <!-- Grafische Darstellung -->
             <div class="container_charts">
                 <div class="chart" id="chart_year"><canvas id="temperatureChart"></canvas></div>
@@ -62,61 +66,29 @@
 
 <!-- Tabelle für Stationsdetails -->
 <div class="results_table_wrapper2">
-    <table id="stationsTable" class="table_details">
-        <thead>
+    <table>
             <tr>
                 <th rowspan="2">Jahr</th>
-                <th colspan="2" class="year">Ganzes Jahr</th>
-                <th colspan="2" class="spring">Frühling</th>
-                <th colspan="2" class="summer">Sommer</th>
-                <th colspan="2" class="autumn">Herbst</th>
-                <th colspan="2" class="winter">Winter</th>
+                <th colspan="2">Ganzes Jahr</th>
+                <th colspan="2">Frühling</th>
+                <th colspan="2">Sommer</th>
+                <th colspan="2">Herbst</th>
+                <th colspan="2">Winter</th>
             </tr>
             <tr>
-                <th class="year">Min. Temperatur (°C)</th>
-                <th class="year">Max. Temperatur (°C)</th>
-                <th class="spring">Min. Temperatur (°C)</th>
-                <th class="spring">Max. Temperatur (°C)</th>
-                <th class="summer">Min. Temperatur (°C)</th>
-                <th class="summer">Max. Temperatur (°C)</th>
-                <th class="autumn">Min. Temperatur (°C)</th>
-                <th class="autumn">Max. Temperatur (°C)</th>
-                <th class="winter">Min. Temperatur (°C)</th>
-                <th class="winter">Max. Temperatur (°C)</th>
+                <th>&#8709 Minima</th>
+                <th>&#8709 Maxima</th>
+                <th>&#8709 Minima</th>
+                <th>&#8709 Maxima</th>
+                <th>&#8709 Minima</th>
+                <th>&#8709 Maxima</th>
+                <th>&#8709 Minima</th>
+                <th>&#8709 Maxima</th>
+                <th>&#8709 Minima</th>
+                <th>&#8709 Maxima</th>
             </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>2021</td>
-                <td class="year">-5</td>
-                <td class="year">25</td>
-                <td class="spring">2</td>
-                <td class="spring">18</td>
-                <td class="summer">10</td>
-                <td class="summer">30</td>
-                <td class="autumn">5</td>
-                <td class="autumn">20</td>
-                <td class="winter">-10</td>
-                <td class="winter">5</td>
-            </tr>
-            <tr>
-                <td>2022</td>
-                <td class="year">-4</td>
-                <td class="year">26</td>
-                <td class="spring">3</td>
-                <td class="spring">19</td>
-                <td class="summer">11</td>
-                <td class="summer">31</td>
-                <td class="autumn">6</td>
-                <td class="autumn">21</td>
-                <td class="winter">-9</td>
-                <td class="winter">6</td>
-            </tr>
-        </tbody>
+        <tbody id="stationDataTableBody"></tbody>
     </table>
 </div>
-
-        </div>
-    </div>
 </body>
 </html>

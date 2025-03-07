@@ -129,29 +129,21 @@ label {
 .results_table_wrapper2 {
     flex-grow: 1;
     overflow-y: auto; /* Vertikales Scrollen aktivieren */
-    margin-top: 20px; 
-    border: 1px solid #ddd;
+    margin-top: 20px;
 }
 
-.table_details table, 
-.table_details th, 
-.table_details td {
-    border: 1px solid #ddd;
-}
 
 
 /* Tabelle bleibt in normaler Struktur */
 table {
     width: 100%;
-    border-collapse: collapse;
-
 }
 
 /* Fixiertes Tabellen-Header */
 thead {
     position: sticky;
     top: 0;
-    background-color: white;
+    background-color: #004d99;
     z-index: 2;
 }
 
@@ -161,18 +153,26 @@ tbody {
     max-height: 250px; /* Begrenzung */
 }
 
-/* Tabellenzellen korrekt formatieren */
-table, th, td {
-    border: none;
-}
 
-th, td {
+th, td, tr {
     padding: 6px;
-    text-align: left;
     font-size: 1em;
     white-space: nowrap; /* Verhindert Umbrüche */
+    text-align: center;
 }
 
+tr:nth-child(even){background-color: #f2f2f2}
+
+tr {
+    border: 1px solid #ddd;
+}
+
+th {
+    background-color: #004d99;
+    color: white;
+    text-align: center;
+    border-radius: 4px;
+}
 
 /* Diagramm */
 .container_charts {
@@ -182,7 +182,7 @@ th, td {
 }
 
 .chart {
-    width: 48%;
+    width: 60%;
     height: 400px;
     background-color: white;
     display: flex;
@@ -190,6 +190,8 @@ th, td {
     justify-content: space-between;
     color: white;
     font-size: 1.2em;
+    margin-top: 20px;
+    margin-bottom: 20px;
 }
 
 .table-button {
@@ -224,7 +226,7 @@ th, td {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2em;
+    font-size: 1em;
 }
 
 
@@ -251,3 +253,41 @@ th, td {
 .station-button:hover {
     background-color: #003366;
 }
+
+#loadingOverlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 20%;
+    height: 20%;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; /* 🚀 Standardmäßig versteckt */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+    z-index: 10000;
+    transform: translate(-50%, -50%); /* ✅ Perfekt zentrieren */
+    border-radius: 10px; /* Optional: Abgerundete Ecken */
+    text-align: center;
+}
+
+
+.loader {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #003366;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+

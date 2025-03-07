@@ -1,348 +1,248 @@
 import os
 import math
-import gzip
 import requests
+import shutil
+from collections import defaultdict
 from flask import Flask, request, jsonify
+from concurrent.futures import ThreadPoolExecutor
+from flask_cors import CORS
+
 
 app = Flask(__name__)
+CORS(app) 
 
-# URLs and paths
 STATIONS_URL = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt"
-BASE_WEATHER_URL = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/all"
+BASE_WEATHER_URL = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/all/"
 STATIONS_FILE = "ghcnd-stations.txt"
-WEATHER_DATA_DIR = "weather_data"
+WEATHER_DATA_DIR = "ghcn_weather"
 
-stations = []
+# Ordner für Wetterdaten anlegen
+os.makedirs(WEATHER_DATA_DIR, exist_ok=True)
 
-
-### Helper functions ###
+### 🔹 Hilfsfunktionen ###
 
 def download_station_file():
-    """Downloads the station file if it doesn't exist."""
+    """Lädt die Stationsdatei herunter, falls sie nicht existiert."""
     if not os.path.exists(STATIONS_FILE):
-        print("Downloading station file...")
-        response = requests.get(STATIONS_URL)
-        if response.status_code == 200:
+        print("📥 Lade Stationsdatei herunter...")
+        try:
+            response = requests.get(STATIONS_URL, timeout=15)
+            response.raise_for_status()
             with open(STATIONS_FILE, "wb") as file:
                 file.write(response.content)
-            print("Download successful.")
-        else:
-            raise Exception(f"Error downloading station file: {response.status_code}")
-
+            print("✅ Stationsdatei erfolgreich gespeichert.")
+        except requests.exceptions.RequestException as e:
+            print("❌ Fehler beim Herunterladen der Stationsdatei:", e)
 
 def parse_stations():
-    """
-    Reads the station file and returns a list of stations (as dictionaries).
-    """
-    parsed_stations = []
+    """Liest die `ghcnd-stations.txt` und speichert sie als Liste von Stationen."""
+    stations = []
     if not os.path.exists(STATIONS_FILE):
-        print(f"File {STATIONS_FILE} does not exist.")
-        download_station_file()
+        print(f"❌ Stationsdatei {STATIONS_FILE} nicht gefunden!")
+        return stations
 
-    with open(STATIONS_FILE, "r", encoding="utf-8") as file:
-        for line in file:
+    with open(STATIONS_FILE, "r", encoding="utf-8") as f:
+        for line in f:
             try:
                 station_id = line[0:11].strip()
                 lat = float(line[12:20].strip())
                 lon = float(line[21:30].strip())
-                # Extraktion des vollständigen Stationsnamens (war: station_name = line[41:71].strip())
-                parts = line[36:].strip().rsplit(
-                    maxsplit=2)  # Splittet nur die letzten beiden Werte (Bundesstaat, Land)
-                station_name = " ".join(parts[:-2])  # Alles außer den letzten beiden Teilen ist der Name
-                parsed_stations.append({"id": station_id, "lat": lat, "lon": lon, "name": station_name})
+                station_name = line[41:71].strip()
+                stations.append({"id": station_id, "lat": lat, "lon": lon, "name": station_name})
             except ValueError:
-                continue  # Skip faulty lines
-    return parsed_stations
-
+                continue
+    return stations
 
 def haversine(lat1, lon1, lat2, lon2):
-    """Calculates the distance between two points on Earth in kilometers."""
-    R = 6371  # Earth radius in km
+    """Berechnet die Entfernung zwischen zwei Punkten auf der Erde in Kilometern."""
+    R = 6371
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
     a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
+def download_weather_data(station_id):
+    """Lädt Wetterdaten für eine Station herunter und speichert sie."""
+    file_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.dly")
+    if os.path.exists(file_path):
+        print(f"📂 {station_id}.dly existiert bereits.")
+        return
+    
+    url = f"{BASE_WEATHER_URL}{station_id}.dly"
+    try:
+        response = requests.get(url, timeout=20, stream=True)
+        response.raise_for_status()
+        with open(file_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print(f"✅ Wetterdaten für {station_id} gespeichert.")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Fehler beim Download von {station_id}: {e}")
 
 def download_weather_data_for_stations(station_ids):
-    """Downloads weather data for a list of stations and saves it to `WEATHER_DATA_DIR`."""
-    if not os.path.exists(WEATHER_DATA_DIR):
-        os.makedirs(WEATHER_DATA_DIR)
+    """Lädt Wetterdaten für mehrere Stationen parallel herunter."""
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        executor.map(download_weather_data, station_ids)
 
-    for station_id in station_ids:
-        file_url = f"{BASE_WEATHER_URL}/{station_id}.dly"
-        target_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
-
-        # Only download if file doesn't exist
-        if not os.path.exists(target_path):
-            print(f"Downloading data for station {station_id}...")
-            response = requests.get(file_url)
-            if response.status_code == 200:
-                # Compress the downloaded data and save as .gz
-                with gzip.open(target_path, "wb") as gz_file:
-                    gz_file.write(response.content)
-                print(f"Download for {station_id} successful.")
-
-                # Check if file is not empty
-                if os.path.getsize(target_path) == 0:
-                    print(f"Error: File {target_path} is empty.")
-            else:
-                print(f"Error downloading {station_id}: {response.status_code}")
-
-
-def process_weather_data_for_station(station_id):
-    """
-    Processes weather data for a specific station:
-    - Filters only for TMAX and TMIN elements
-    - Excludes invalid values (-9999)
-    - Scales temperature values (dividing by 10)
-
-    Args:
-        station_id: The ID of the weather station
-
-    Returns:
-        tuple: (temperatures_list, error_message)
-    """
-    # Prüfe zuerst für gz-Datei
-    station_data_path_gz = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
-    # Dann für dly-Datei
-    station_data_path_dly = os.path.join(WEATHER_DATA_DIR, f"{station_id}.dly")
-
-    # Prüfe, ob eine der Dateien existiert
-    if os.path.exists(station_data_path_gz):
-        station_data_path = station_data_path_gz
-        is_gzipped = True
-    elif os.path.exists(station_data_path_dly):
-        station_data_path = station_data_path_dly
-        is_gzipped = False
-    else:
-        print(f"Error: Weather data for station {station_id} not found")
-        return None, f"No weather data found for station {station_id}."
-
-    temperatures = []
-
-    try:
-        # Wähle die richtige Öffnungsmethode basierend auf dem Dateityp
-        if is_gzipped:
-            file_opener = lambda: gzip.open(station_data_path, "rt", encoding="utf-8")
-        else:
-            file_opener = lambda: open(station_data_path, "rt", encoding="utf-8")
-
-        with file_opener() as file:
-            for line in file:
-                try:
-                    # Parse NOAA format columns
-                    current_station_id = line[0:11].strip()
-                    year = line[11:15].strip()
-                    month = line[15:17].strip()
-                    element = line[17:21].strip()
-
-                    # Skip if not TMAX or TMIN
-                    if element not in ["TMAX", "TMIN"]:
-                        continue
-
-                    # Process daily values (each line contains a month of data)
-                    # Each daily value uses 8 characters (5 for value, 3 for flags)
-                    # Starting at position 21
-                    for day in range(1, 32):
-                        pos = 21 + (day - 1) * 8
-                        if pos + 5 > len(line):
-                            break
-
-                        try:
-                            value_str = line[pos:pos + 5].strip()
-                            if not value_str:
-                                continue
-
-                            value = int(value_str)
-
-                            # Skip invalid values
-                            if value == -9999:
-                                continue
-
-                            # Scale temperature (divide by 10)
-                            temperature = value / 10.0
-
-                            # Format date as YYYYMMDD
-                            date = f"{year}{month}{day:02d}"
-
-                            temperatures.append({
-                                "date": date,
-                                "type": element,
-                                "temperature": temperature
-                            })
-                        except ValueError:
-                            continue
-
-                except Exception as e:
-                    print(f"Error processing line for station {station_id}: {e}")
-                    continue
-
-    except FileNotFoundError:
-        return None, f"File for station {station_id} not found."
-    except gzip.BadGzipFile:
-        return None, f"Invalid gzip file for station {station_id}."
-    except Exception as e:
-        return None, f"Error processing file for station {station_id}: {str(e)}"
-
-    if not temperatures:
-        return None, f"No valid temperature data found for station {station_id}."
-
-    print(f"Successfully processed {len(temperatures)} records for station {station_id}.")
-    return temperatures, None
-
-
-### API endpoints ###
+### 🔹 Flask Endpunkte ###
 
 @app.route("/search_stations", methods=["GET"])
 def search_stations():
-    """
-    Searches for stations by coordinates and radius.
-    """
-    # Initialize stations if not already done
-    global stations
-    if not stations:
-        stations = parse_stations()
-        print(f"Loaded {len(stations)} stations.")
-
+    """Sucht Wetterstationen in einem gegebenen Radius."""
     try:
         lat = float(request.args.get("lat"))
         lon = float(request.args.get("lon"))
         radius = float(request.args.get("radius", 50))
         max_results = int(request.args.get("max", 10))
     except (TypeError, ValueError):
-        return jsonify({"error": "Ungültige Parameter"}), 400  # Fehlermeldung geändert
+        return jsonify({"error": "Ungültige Parameter"}), 400
 
-    results = []
-    for station in stations:
-        distance = haversine(lat, lon, station["lat"], station["lon"])
-        if distance <= radius:
-            station_copy = station.copy()
-            station_copy["distance"] = round(distance, 2)
-            results.append(station_copy)
+    nearby_stations = [
+        {**station, "distance": round(haversine(lat, lon, station["lat"], station["lon"]), 2)}
+        for station in stations if haversine(lat, lon, station["lat"], station["lon"]) <= radius
+    ]
+    nearby_stations.sort(key=lambda x: x["distance"])
+    selected_stations = nearby_stations[:max_results]
 
-    results.sort(key=lambda x: x["distance"])
-    return jsonify(results[:max_results])
+    station_ids = [station["id"] for station in selected_stations]
+    shutil.rmtree(WEATHER_DATA_DIR)
+    os.makedirs(WEATHER_DATA_DIR)
+    download_weather_data_for_stations(station_ids)
 
+    return jsonify(selected_stations)
 
 @app.route("/get_station_data", methods=["GET"])
 def get_station_data():
-    """
-    Returns weather data for a station based on its ID and a time period.
-    """
-    # Initialize stations if not already done
-    global stations
-    if not stations:
-        stations = parse_stations()
-        print(f"Loaded {len(stations)} stations.")
-
+    """Gibt die durchschnittliche TMAX und TMIN für meteorologische Jahreszeiten und das gesamte Jahr zurück."""
     station_id = request.args.get("station_id")
-    if not station_id:
-        return jsonify({"error": "Keine Station-ID angegeben"}), 400  # Fehlermeldung geändert
 
     try:
-        start_year = int(request.args.get("start_year", 2010))
-        end_year = int(request.args.get("end_year", 2020))
+        start_year = int(request.args.get("start_year", 1900))
+        end_year = int(request.args.get("end_year", 2100))
     except ValueError:
-        return jsonify({"error": "Ungültige Jahresangaben"}), 400  # Fehlermeldung geändert
+        return jsonify({"error": "Ungültige Jahresangaben"}), 400
 
-    # Check station
-    station = next((s for s in stations if s["id"] == station_id), None)
-    if not station:
-        return jsonify({"error": "Station nicht gefunden"}), 404  # Fehlermeldung geändert
-
-    # Check if weather data exists, if not download it
-    station_data_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
-    if not os.path.exists(station_data_path):
-        download_weather_data_for_stations([station_id])
-
-    # Process weather data
-    temperatures, error = process_weather_data_for_station(station_id)
-    if error:
-        return jsonify({"error": error}), 404
-
-    # Filter data by time period
-    filtered_temperatures = [
-        temp for temp in temperatures
-        if start_year <= int(temp["date"][:4]) <= end_year
-    ]
-
-    if not filtered_temperatures:
-        return jsonify({
-                           "error": f"Keine Temperaturdaten für den Zeitraum {start_year}-{end_year} gefunden."}), 404  # Fehlermeldung geändert
-
-    # Rückgabeformat angepasst an test_get_station_data_valid
-    return jsonify({
-        "id": station_id,
-        "name": station["name"],
-        "lat": station["lat"],
-        "lon": station["lon"],
-        "temperatures": filtered_temperatures
-    })
-
-
-@app.route("/download_weather_data", methods=["GET"])
-def download_weather_data_endpoint():
-    """
-    Downloads weather data for all stations.
-    """
-    # Initialize stations if not already done
-    global stations
-    if not stations:
-        stations = parse_stations()
-        print(f"Loaded {len(stations)} stations.")
-
-    station_id = request.args.get("station_id")
-    if station_id:
-        # Download data for a specific station
-        download_weather_data_for_stations([station_id])
-        return jsonify({
-                           "message": f"Wetterdaten für Station {station_id} erfolgreich heruntergeladen."}), 200  # Fehlermeldung geändert
-    else:
-        # Download data for all stations (could be a lot!)
-        station_ids = [station["id"] for station in stations]
-        download_weather_data_for_stations(station_ids)
-        return jsonify(
-            {"message": "Wetterdaten für alle Stationen erfolgreich heruntergeladen."}), 200  # Fehlermeldung geändert
-
-
-@app.route("/process_weather_data", methods=["GET"])
-def process_weather_data_endpoint():
-    """
-    Processes weather data for a specific station and returns the results.
-    """
-    # Initialize stations if not already done
-    global stations
-    if not stations:
-        stations = parse_stations()
-        print(f"Loaded {len(stations)} stations.")
-
-    station_id = request.args.get("station_id")
     if not station_id:
-        return jsonify({"error": "Keine Station-ID angegeben"}), 400  # Fehlermeldung geändert
+        return jsonify({"error": "Station-ID fehlt"}), 400
 
-    # Check if weather data exists, if not download it
-    station_data_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.gz")
-    if not os.path.exists(station_data_path):
-        download_weather_data_for_stations([station_id])
+    # ✅ Station in der Liste finden (um den Namen zu erhalten)
+    station = next((s for s in stations if s["id"] == station_id), None)
 
-    temperatures, error = process_weather_data_for_station(station_id)
-    if error:
-        return jsonify({"error": error}), 404
+    if not station:
+        return jsonify({"error": "Station nicht gefunden"}), 404
 
-    return jsonify({
-        "station_id": station_id,
-        "temperatures": temperatures
+    file_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.dly")
+    if not os.path.exists(file_path):
+        return jsonify({"error": f"Keine Wetterdaten für {station['name']} gefunden."}), 404
+
+    # Datenstruktur für die Berechnungen
+    data_by_year = defaultdict(lambda: {
+        "avg_TMAX": 0, "count_TMAX": 0, 
+        "avg_TMIN": 0, "count_TMIN": 0,
+        "seasons": {
+            "Winter": {"avg_TMAX": 0, "count_TMAX": 0, "avg_TMIN": 0, "count_TMIN": 0},
+            "Spring": {"avg_TMAX": 0, "count_TMAX": 0, "avg_TMIN": 0, "count_TMIN": 0},
+            "Summer": {"avg_TMAX": 0, "count_TMAX": 0, "avg_TMIN": 0, "count_TMIN": 0},
+            "Autumn": {"avg_TMAX": 0, "count_TMAX": 0, "avg_TMIN": 0, "count_TMIN": 0}
+        }
     })
 
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            element = line[17:21]  # TMAX, TMIN oder TAVG
+            if element not in ["TMAX", "TMIN", "TAVG"]:
+                continue  # Andere Werte ignorieren
 
-# Initialize when imported
-if stations == []:
-    if not os.path.exists(STATIONS_FILE):
-        download_station_file()
-    stations = parse_stations()
-    print(f"Loaded {len(stations)} stations.")
+            year = int(line[11:15])  # Jahr extrahieren
+            month = int(line[15:17])  # Monat extrahieren
+
+            # **Meteorologische Jahreszeiten zuordnen**
+            if month in [12, 1, 2]:  
+                season = "Winter"
+                season_year = year if month != 12 else year + 1  # Dezember zählt zum nächsten Jahr
+            elif month in [3, 4, 5]:  
+                season = "Spring"
+                season_year = year
+            elif month in [6, 7, 8]:  
+                season = "Summer"
+                season_year = year
+            elif month in [9, 10, 11]:  
+                season = "Autumn"
+                season_year = year
+
+            # ❗ **Fix für Winter-Saison, die ins nächste Jahr geht**
+            if season == "Winter" and season_year > end_year:
+                continue  # Winter darf nicht ins nächste Jahr überlaufen
+
+            # Nur Daten für den gewählten Zeitraum speichern
+            if not (start_year <= year <= end_year):
+                continue
+
+            values = [int(line[i:i+5].strip()) for i in range(21, 261, 8) 
+                      if line[i:i+5].strip() != "-9999"]  # Nur gültige Werte
+
+            if not values:
+                continue  # Falls keine Werte übrig bleiben
+
+            # **TMAX → Durchschnitt über alle Werte berechnen**
+            if element == "TMAX":
+                data_by_year[year]["avg_TMAX"] += sum(values) / 10.0
+                data_by_year[year]["count_TMAX"] += len(values)
+
+                data_by_year[season_year]["seasons"][season]["avg_TMAX"] += sum(values) / 10.0
+                data_by_year[season_year]["seasons"][season]["count_TMAX"] += len(values)
+
+            # **TMIN → Durchschnitt über alle Werte berechnen**
+            elif element == "TMIN":
+                data_by_year[year]["avg_TMIN"] += sum(values) / 10.0
+                data_by_year[year]["count_TMIN"] += len(values)
+
+                data_by_year[season_year]["seasons"][season]["avg_TMIN"] += sum(values) / 10.0
+                data_by_year[season_year]["seasons"][season]["count_TMIN"] += len(values)
+
+            # **TAVG → Höchster Wert als TMAX, niedrigster als TMIN**
+            elif element == "TAVG":
+                max_value = max(values) / 10.0
+                min_value = min(values) / 10.0
+
+                data_by_year[year]["avg_TMAX"] += max_value
+                data_by_year[year]["count_TMAX"] += 1
+
+                data_by_year[year]["avg_TMIN"] += min_value
+                data_by_year[year]["count_TMIN"] += 1
+
+                data_by_year[season_year]["seasons"][season]["avg_TMAX"] += max_value
+                data_by_year[season_year]["seasons"][season]["count_TMAX"] += 1
+
+                data_by_year[season_year]["seasons"][season]["avg_TMIN"] += min_value
+                data_by_year[season_year]["seasons"][season]["count_TMIN"] += 1
+
+    # **Endgültige Berechnung der Durchschnittswerte**
+    result_data = {"station": station_id, "name": station["name"], "years": {}}  # ⬅️ Name hinzugefügt
+
+    for year, data in data_by_year.items():
+        yearly_avg_TMAX = round(data["avg_TMAX"] / data["count_TMAX"], 2) if data["count_TMAX"] > 0 else None
+        yearly_avg_TMIN = round(data["avg_TMIN"] / data["count_TMIN"], 2) if data["count_TMIN"] > 0 else None
+
+        year_data = {"avg_TMAX": yearly_avg_TMAX, "avg_TMIN": yearly_avg_TMIN, "seasons": {}}
+
+        for season, season_data in data["seasons"].items():
+            avg_TMAX = round(season_data["avg_TMAX"] / season_data["count_TMAX"], 2) if season_data["count_TMAX"] > 0 else None
+            avg_TMIN = round(season_data["avg_TMIN"] / season_data["count_TMIN"], 2) if season_data["count_TMIN"] > 0 else None
+            if avg_TMAX is not None or avg_TMIN is not None:
+                year_data["seasons"][season] = {"avg_TMAX": avg_TMAX, "avg_TMIN": avg_TMIN}
+
+        if year_data["seasons"]:  # Nur hinzufügen, wenn es Werte gibt
+            result_data["years"][year] = year_data
+
+    return jsonify(result_data)
+
+
+
+### 🔹 Initialisierung ###
+download_station_file()
+stations = parse_stations()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000)

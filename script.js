@@ -1,56 +1,5 @@
-// Erstellen von Diagramm mit Beispieldaten
 document.addEventListener("DOMContentLoaded", function () {
-    const ctx = document.getElementById('temperatureChart').getContext('2d');
-
-    const temperatureChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: Array.from({ length: 20 }, (_, i) => 2021 + i),
-            datasets: [
-                {
-                    label: 'Min. Temperatur (°C)',
-                    data: [-2, -3, -1, -2, -4, -3, -5, -4, -2, -3, -1, -2, -4, -3, -5, -4, -2, -3, -1, -2, -3],
-                    borderColor: 'blue',
-                    fill: false,
-                },
-                {
-                    label: 'Max. Temperatur (°C)',
-                    data: [20, 21, 22, 21, 23, 24, 25, 26, 24, 23, 22, 24, 25, 26, 27, 28, 27, 26, 25, 24, 23],
-                    borderColor: 'red',
-                    fill: false,
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: { title: { display: true, text: 'Jahr' } },
-                y: { title: { display: true, text: 'Temperatur (°C)' } }
-            }
-        }
-    });
-});
-
-// Auswahl von Start und Endjahr als Dropdownmenü
-document.addEventListener("DOMContentLoaded", function () {
-    const startYearSelect = document.getElementById("year_start");
-    const endYearSelect = document.getElementById("year_end");
-
-    const currentYear = new Date().getFullYear();
-
-    for (let year = 1900; year <= 2100; year++) {
-        let optionStart = new Option(year, year);
-        let optionEnd = new Option(year, year);
-        startYearSelect.appendChild(optionStart);
-        endYearSelect.appendChild(optionEnd);
-    }
-
-    startYearSelect.value = currentYear - 1;
-    endYearSelect.value = currentYear;
-});
-
-document.addEventListener("DOMContentLoaded", async function () {
-    // Initialisiere die Karte mit Standard-Koordinaten
+    // 🌍 Karte initialisieren
     const map = L.map('map').setView([48.7758, 9.1829], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
@@ -58,17 +7,10 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     let currentMarkers = [];
     let currentCircle = null;
+    let centerMarker = null; // 🔴 Neuer Marker für den Mittelpunkt des Kreises
 
-    // Beispielstationen aus der JSON-Datei laden
-    let stations = [];
-    try {
-        const response = await fetch("stations.json");
-        stations = await response.json();
-    } catch (error) {
-        console.error("Fehler beim Laden der Stationsdaten:", error);
-    }
 
-    function addStationMarker(lat, lng, name) {
+    function addStationMarker(lat, lng, name, stationId) {
         const marker = L.marker([lat, lng], {
             icon: L.icon({ 
                 iconUrl: 'https://www.google.com/mapfiles/ms/icons/blue-dot.png',
@@ -83,79 +25,230 @@ document.addEventListener("DOMContentLoaded", async function () {
     function clearMap() {
         currentMarkers.forEach(marker => map.removeLayer(marker));
         currentMarkers = [];
+        
         if (currentCircle) {
             map.removeLayer(currentCircle);
             currentCircle = null;
         }
-
-        // Trefferliste leeren
+    
+        if (centerMarker) { // ❗ Falls vorhanden, entferne den alten Mittelpunkt-Marker
+            map.removeLayer(centerMarker);
+            centerMarker = null;
+        }
+    
         document.getElementById("resultsContainer").innerHTML = "";
+    
+        // 🔄 Stationsdetails zurücksetzen
+        document.getElementById("stationTitle").innerText = "Stationsdetails";
+    
+        // 🗑 Tabelle zurücksetzen
+        document.getElementById("stationDataTableBody").innerHTML = "<tr><td colspan='11'>Keine Daten verfügbar</td></tr>";
+    
+        // 📊 Chart zurücksetzen
+        temperatureChart.data.labels = [];
+        temperatureChart.data.datasets.forEach(dataset => dataset.data = []);
+        temperatureChart.update();
     }
-
-    function getDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371; // Erdradius in km
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Entfernung in km
-    }
+    
+    
 
     document.querySelector(".button").addEventListener("click", function () {
         const lat = parseFloat(document.getElementById("latitude").value);
-        const lng = parseFloat(document.getElementById("longitude").value);
+        const lon = parseFloat(document.getElementById("longitude").value);
         const radius = parseFloat(document.getElementById("radius").value);
         const maxStations = parseInt(document.getElementById("number").value);
-
-        if (!isNaN(lat) && !isNaN(lng) && !isNaN(radius)) {
+    
+        if (!isNaN(lat) && !isNaN(lon) && !isNaN(radius)) {
             clearMap();
-
-            // Kreis um die Suchkoordinaten hinzufügen
-            currentCircle = L.circle([lat, lng], {
-                color: '#add8e6',
+            showLoading(); // 🔄 Ladeanzeige einblenden
+    
+            currentCircle = L.circle([lat, lon], {
+                color: '#004d99',
                 fillColor: '#add8e6',
                 fillOpacity: 0.3,
                 radius: radius * 1000
             }).addTo(map);
             
-            // Stationen mit Entfernungsberechnung sammeln
-            let nearbyStations = stations.map(station => {
-                return {
-                    ...station,
-                    distance: getDistance(lat, lng, station.latitude, station.longitude)
-                };
-            });
+            // 🔴 Füge einen Marker für den Mittelpunkt des Kreises hinzu
+            centerMarker = L.marker([lat, lon], {
+                icon: L.icon({
+                    iconUrl: 'https://www.google.com/mapfiles/ms/icons/red-dot.png', // Roter Marker für den Mittelpunkt
+                    iconSize: [32, 32]
+                })
+            }).addTo(map).bindPopup(`<b>Mittelpunkt</b><br>(${lat.toFixed(5)}, ${lon.toFixed(5)})`);
 
-            // Nur Stationen innerhalb des Radius behalten & nach Entfernung sortieren
-            nearbyStations = nearbyStations
-                .filter(station => station.distance <= radius)
-                .sort((a, b) => a.distance - b.distance) // Nach Nähe sortieren
-                .slice(0, maxStations); // Begrenzung auf max. Anzahl
 
-            // Trefferliste-Container
-            const resultsContainer = document.getElementById("resultsContainer");
-
-            // Stationen auf die Karte setzen & Buttons erstellen
-            nearbyStations.forEach(station => {
-                addStationMarker(station.latitude, station.longitude, station.name);
-
-                // Treffer als Button hinzufügen
-                const stationButton = document.createElement("button");
-                stationButton.classList.add("station-button");
-                stationButton.innerHTML = `${station.name} - ${station.distance.toFixed(2)} km`;
-                stationButton.addEventListener("click", function () {
-                    map.setView([station.latitude, station.longitude], 12);
+            fetch(`http://localhost:5000/search_stations?lat=${lat}&lon=${lon}&radius=${radius}&max=${maxStations}`)
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading(); // ✅ Ladeanzeige ausblenden
+    
+                    const resultsContainer = document.getElementById("resultsContainer");
+                    data.forEach(station => {
+                        addStationMarker(station.lat, station.lon, station.name, station.id);
+                        const stationButton = document.createElement("button");
+                        stationButton.classList.add("station-button");
+                        stationButton.innerHTML = `${station.name} - ${station.distance.toFixed(2)} km`;
+                        stationButton.addEventListener("click", function () {
+                            fetchStationData(station.id);
+                            map.setView([station.lat, station.lon], 12);
+                        });
+                        resultsContainer.appendChild(stationButton);
+                    });
+    
+                    map.setView([lat, lon], 10);
+                })
+                .catch(error => {
+                    hideLoading(); // ❌ Ladeanzeige ausblenden, falls Fehler
+                    console.error("Fehler beim Abrufen der Daten:", error);
                 });
-
-                resultsContainer.appendChild(stationButton);
-            });
-
-            map.setView([lat, lng], 10);
         } else {
             alert("Bitte gültige Koordinaten, einen Radius und eine Anzahl eingeben!");
         }
     });
-});
+   
+    function showLoading() {
+        document.getElementById("loadingOverlay").style.display = "flex";
+    }
+    
+    function hideLoading() {
+        document.getElementById("loadingOverlay").style.display = "none";
+    }
 
+    // 📊 Chart.js für Temperatur-Diagramm
+    const ctx = document.getElementById('temperatureChart').getContext('2d');
+    const temperatureChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [], // Wird durch API-Daten ersetzt
+            datasets: [
+                { label: '∅-Jahresminima', data: [], borderColor: 'blue', fill: false },
+                { label: '∅-Jahresmaxima', data: [], borderColor: 'red', fill: false },
+                { label: '∅-Winter Minima', data: [], borderColor: '#49e4ff', fill: false, hidden: true },
+                { label: '∅-Winter Maxima', data: [], borderColor: '#2b8392', fill: false, hidden: true },
+                { label: '∅-Frühling Minima', data: [], borderColor: '#0bfd68', fill: false, hidden: true },
+                { label: '∅-Frühling Maxima', data: [], borderColor: '#0d8b22', fill: false, hidden: true },
+                { label: '∅-Sommer Minima', data: [], borderColor: '#fdee64', fill: false, hidden: true },
+                { label: '∅-Sommer Maxima', data: [], borderColor: '#dac82d', fill: false, hidden: true },
+                { label: '∅-Herbst Minima', data: [], borderColor: '#ff8c49', fill: false, hidden: true },
+                { label: '∅-Herbst Maxima', data: [], borderColor: '#925115', fill: false, hidden: true }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: 'Jahr' } },
+                y: { title: { display: true, text: 'Temperatur (°C)' } }
+            }
+        }
+    });
+
+    // 🔹 Funktion: Daten für eine Station abrufen und ins Diagramm laden
+    function fetchStationData(stationId) {
+        const startYear = document.getElementById("year_start").value;
+        const endYear = document.getElementById("year_end").value;
+    
+        fetch(`http://localhost:5000/get_station_data?station_id=${stationId}&start_year=${startYear}&end_year=${endYear}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Empfangene Stationsdaten:", data);  // 👉 Debug-Ausgabe
+                console.log(startYear, endYear);  // 👉 Debug-Ausgabe
+                
+                // 🔴 Überprüfung: Falls `years` nicht existiert oder leer ist
+                if (!data || !data.years || Object.keys(data.years).length === 0) {
+                    console.error("Fehler: API-Antwort hat keine gültigen Jahresdaten!", data);
+                    alert("Fehler: Keine gültigen Jahresdaten verfügbar.");
+                    return;
+                }
+                
+                document.getElementById("stationTitle").innerText = `Stationsdetails: ${data.name}`;
+
+                // 📊 Umwandlung von `years` in ein Array
+                const labels = Object.keys(data.years); // Alle Jahreszahlen als Labels
+                const yearsArray = Object.entries(data.years).map(([year, values]) => ({
+                    year,
+                    avg_TMAX: values.avg_TMAX ?? null,
+                    avg_TMIN: values.avg_TMIN ?? null,
+                    seasons: values.seasons
+                }));
+    
+                const avgTmin = yearsArray.map(entry => entry.avg_TMIN);
+                const avgTmax = yearsArray.map(entry => entry.avg_TMAX);
+    
+                const winterTmin = yearsArray.map(entry => entry.seasons?.Winter?.avg_TMIN ?? null);
+                const winterTmax = yearsArray.map(entry => entry.seasons?.Winter?.avg_TMAX ?? null);
+                const springTmin = yearsArray.map(entry => entry.seasons?.Spring?.avg_TMIN ?? null);
+                const springTmax = yearsArray.map(entry => entry.seasons?.Spring?.avg_TMAX ?? null);
+                const summerTmin = yearsArray.map(entry => entry.seasons?.Summer?.avg_TMIN ?? null);
+                const summerTmax = yearsArray.map(entry => entry.seasons?.Summer?.avg_TMAX ?? null);
+                const autumnTmin = yearsArray.map(entry => entry.seasons?.Autumn?.avg_TMIN ?? null);
+                const autumnTmax = yearsArray.map(entry => entry.seasons?.Autumn?.avg_TMAX ?? null);
+    
+                // 📊 Diagramm aktualisieren
+                temperatureChart.data.labels = labels;
+                temperatureChart.data.datasets[0].data = avgTmin;
+                temperatureChart.data.datasets[1].data = avgTmax;
+                temperatureChart.data.datasets[2].data = winterTmin;
+                temperatureChart.data.datasets[3].data = winterTmax;
+                temperatureChart.data.datasets[4].data = springTmin;
+                temperatureChart.data.datasets[5].data = springTmax;
+                temperatureChart.data.datasets[6].data = summerTmin;
+                temperatureChart.data.datasets[7].data = summerTmax;
+                temperatureChart.data.datasets[8].data = autumnTmin;
+                temperatureChart.data.datasets[9].data = autumnTmax;
+                temperatureChart.update();
+                updateTable(data);
+            })
+            .catch(error => {
+                console.error("Fehler beim Abrufen der Stationsdaten:", error);
+                alert("Fehler beim Abrufen der Stationsdaten. Siehe Konsole für Details.");
+            });
+    }
+    
+    function updateTable(data) {
+        let tableBody = document.getElementById("stationDataTableBody");
+        tableBody.innerHTML = ""; // Alte Einträge entfernen
+    
+        // Überprüfen, ob Daten vorhanden sind
+        if (!data.years || Object.keys(data.years).length === 0) {
+            tableBody.innerHTML = "<tr><td colspan='11'>Keine Daten verfügbar</td></tr>";
+            return;
+        }
+    
+        // ✅ Daten in die Tabelle einfügen
+        Object.keys(data.years).forEach(year => {
+            let yearData = data.years[year];
+    
+            let row = `<tr>
+                <td>${year}</td>
+                <td>${yearData.avg_TMIN !== null ? yearData.avg_TMIN + "°C" : "-"}</td>
+                <td>${yearData.avg_TMAX !== null ? yearData.avg_TMAX + "°C" : "-"}</td>`;
+    
+            // 🔹 Jahreszeiten hinzufügen
+            ["Spring", "Summer", "Autumn", "Winter"].forEach(season => {
+                let seasonData = yearData.seasons[season] || {};
+                let minTemp = seasonData.avg_TMIN !== undefined ? seasonData.avg_TMIN + "°C" : "-";
+                let maxTemp = seasonData.avg_TMAX !== undefined ? seasonData.avg_TMAX + "°C" : "-";
+                row += `<td>${minTemp}</td><td>${maxTemp}</td>`;
+            });
+    
+            row += "</tr>";
+            tableBody.innerHTML += row;
+        });
+    }
+    
+    const startYearSelect = document.getElementById("year_start");
+    const endYearSelect = document.getElementById("year_end");
+    const currentYear = new Date().getFullYear();
+
+    for (let year = 1900; year <= 2100; year++) {
+        let optionStart = new Option(year, year);
+        let optionEnd = new Option(year, year);
+        startYearSelect.appendChild(optionStart);
+        endYearSelect.appendChild(optionEnd);
+    }
+
+    startYearSelect.value = currentYear - 1;
+    endYearSelect.value = currentYear;
+
+});
