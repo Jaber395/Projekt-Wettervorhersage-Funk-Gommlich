@@ -1,0 +1,170 @@
+import pytest
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+import time
+
+# Constants
+BASE_URL = "http://localhost:8000"  # Adjust to your server setup
+TIMEOUT = 10  # seconds
+
+
+@pytest.fixture(scope="module")
+def driver():
+    # Setup Chrome options for headless mode
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+
+    # Initialize the driver
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    driver.maximize_window()
+
+    yield driver
+
+    # Teardown
+    driver.quit()
+
+
+def test_page_loads(driver):
+    """Test that the page loads successfully."""
+    driver.get(BASE_URL)
+
+    # Check page title
+    assert "Klimadatenanalyse" in driver.title
+
+    # Check if the main elements are loaded
+    assert driver.find_element(By.CLASS_NAME, "header").is_displayed()
+    assert driver.find_element(By.CLASS_NAME, "section_search").is_displayed()
+
+
+def test_search_form_elements(driver):
+    """Test that all search form elements are present."""
+    driver.get(BASE_URL)
+
+    # Check existence of input fields
+    assert driver.find_element(By.ID, "latitude").is_displayed()
+    assert driver.find_element(By.ID, "longitude").is_displayed()
+    assert driver.find_element(By.ID, "radius").is_displayed()
+    assert driver.find_element(By.ID, "number").is_displayed()
+    assert driver.find_element(By.ID, "year_start").is_displayed()
+    assert driver.find_element(By.ID, "year_end").is_displayed()
+
+    # Check search button
+    assert driver.find_element(By.CLASS_NAME, "button").is_displayed()
+
+
+def test_map_loads(driver):
+    """Test that the Leaflet map loads properly."""
+    driver.get(BASE_URL)
+
+    # Wait for the map to load
+    WebDriverWait(driver, TIMEOUT).until(
+        EC.presence_of_element_located((By.ID, "map"))
+    )
+
+    # Check if map container has Leaflet classes
+    map_element = driver.find_element(By.ID, "map")
+    assert map_element.is_displayed()
+
+    # Wait for Leaflet to initialize
+    time.sleep(2)
+
+    # Check if Leaflet is properly initialized
+    leaflet_container = driver.find_element(By.CLASS_NAME, "leaflet-container")
+    assert leaflet_container.is_displayed()
+
+
+def test_search_functionality(driver):
+    """Test the search functionality with valid inputs."""
+    driver.get(BASE_URL)
+
+    # Fill in search form
+    driver.find_element(By.ID, "latitude").send_keys("48.7758")
+    driver.find_element(By.ID, "longitude").send_keys("9.1829")
+    driver.find_element(By.ID, "radius").send_keys("50")
+    driver.find_element(By.ID, "number").send_keys("3")
+
+    # Select years (assuming the dropdowns are populated)
+    # These may need adjustment based on your actual available years
+    year_start = driver.find_element(By.ID, "year_start")
+    year_end = driver.find_element(By.ID, "year_end")
+
+    # Wait for year dropdowns to be populated
+    WebDriverWait(driver, TIMEOUT).until(
+        EC.element_to_be_clickable((By.ID, "year_start"))
+    )
+
+    # Click search button
+    driver.find_element(By.CLASS_NAME, "button").click()
+
+    # Wait for loading overlay to disappear
+    WebDriverWait(driver, TIMEOUT).until(
+        EC.invisibility_of_element_located((By.ID, "loadingOverlay"))
+    )
+
+    # Check if results are displayed
+    WebDriverWait(driver, TIMEOUT).until(
+        EC.visibility_of_element_located((By.ID, "resultsContainer"))
+    )
+
+    results_container = driver.find_element(By.ID, "resultsContainer")
+    assert results_container.is_displayed()
+
+
+def test_station_details(driver):
+    """Test viewing station details after search."""
+    # First perform a search
+    test_search_functionality(driver)
+
+    # Wait for station results to be clickable
+    WebDriverWait(driver, TIMEOUT).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "#resultsContainer a"))
+    )
+
+    # Click on the first station result
+    driver.find_element(By.CSS_SELECTOR, "#resultsContainer a").click()
+
+    # Wait for station details to load
+    WebDriverWait(driver, TIMEOUT).until(
+        EC.visibility_of_element_located((By.ID, "temperatureChart"))
+    )
+
+    # Check if chart and table are displayed
+    assert driver.find_element(By.ID, "temperatureChart").is_displayed()
+    assert driver.find_element(By.ID, "stationDataTableBody").is_displayed()
+
+    # Check if station title is updated
+    station_title = driver.find_element(By.ID, "stationTitle")
+    assert station_title.text != "Stationsdetails"
+    assert station_title.is_displayed()
+
+
+def test_loading_overlay(driver):
+    """Test that loading overlay appears and disappears appropriately."""
+    driver.get(BASE_URL)
+
+    # Fill search form
+    driver.find_element(By.ID, "latitude").send_keys("48.7758")
+    driver.find_element(By.ID, "longitude").send_keys("9.1829")
+    driver.find_element(By.ID, "radius").send_keys("50")
+    driver.find_element(By.ID, "number").send_keys("3")
+
+    # Click search button
+    driver.find_element(By.CLASS_NAME, "button").click()
+
+    # Loading overlay should appear
+    loading_overlay = WebDriverWait(driver, 2).until(
+        EC.visibility_of_element_located((By.ID, "loadingOverlay"))
+    )
+    assert loading_overlay.is_displayed()
+
+    # Wait for loading to complete and overlay to disappear
+    WebDriverWait(driver, TIMEOUT).until(
+        EC.invisibility_of_element_located((By.ID, "loadingOverlay"))
+    )
