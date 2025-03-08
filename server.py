@@ -11,8 +11,8 @@ from flask_cors import CORS
 app = Flask(__name__, static_url_path='', static_folder='.')
 CORS(app)
 
-STATIONS_URL = "https://www1.ncdc.noaa.gov/pub/data/ghcnd/daily/ghcnd-stations.txt"
-BASE_WEATHER_URL = "https://www1.ncdc.noaa.gov/pub/data/ghcnd/daily/all/"
+STATIONS_URL = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt"
+BASE_WEATHER_URL = "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/all/"
 STATIONS_FILE = "ghcnd-stations.txt"
 WEATHER_DATA_DIR = "ghcn_weather"
 
@@ -240,4 +240,4 @@ download_station_file()
 stations = parse_stations()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=8080)

@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Exponiere den Container-Port, auf dem der Server läuft (server.py läuft auf 5000)
-EXPOSE 5000
+EXPOSE 8080
 
 # Starte die Webanwendung
 CMD ["python", "server.py"]
