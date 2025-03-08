@@ -1,0 +1,4 @@
+Flask
+flask-cors
+requests
+# Hinweis: shutil und concurrent.futures sind in Python bereits enthalten.

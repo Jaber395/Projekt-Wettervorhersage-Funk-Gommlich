@@ -1,0 +1,292 @@
+/* Allgemeine Stile */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f9f9f9;
+}
+
+/* Header */
+.header {
+    background-color: #004d99;
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+/* Container */
+.container {
+    padding: 20px;
+}
+
+/* Layout für Such- und Ergebnisbereiche */
+.section_wrapper {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+/* Allgemeine Box-Stile */
+.section, .section_search, .section_results {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    box-sizing: border-box;
+}
+
+.section_search, .section_results {
+    width: 49.5%;
+}
+
+/* Suchergebnisse begrenzen */
+.section_results {
+    max-height: 700px;
+}
+
+/* Überschriften */
+h2 {
+    margin-top: 0;
+    color: #004d99;
+    font-size: 1.8em;
+}
+
+/* Buttons */
+.button {
+    background-color: #004d99;
+    color: white;
+    padding: 15px 30px;
+    border: 1px solid #004d99;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    display: block;
+    margin-top: 10px;
+}
+.button_search {
+    background-color: #004d99;
+    color: white;
+    padding: 15px 30px;
+    border: 1px solid #004d99;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    display: block;
+    margin-top: 10px;
+}
+
+.button:hover {
+    background-color: #003366;
+}
+
+.button-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+/* Eingabefelder */
+.input-field, .input-date {
+    width: 60%;
+    padding: 10px;
+    margin: 10px 0;
+    box-sizing: border-box;
+}
+
+.input-date {
+    width: 100%;
+}
+
+/* Datumsbereich */
+.section_date {
+    display: flex;
+    gap: 20px;
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 2px;
+    font-weight: bold;
+}
+
+/* Begrenzung des Ergebniscodes */
+.section_results {
+    max-height: 700px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Wrapper für scrollbare Tabelle */
+.results_table_wrapper {
+    flex-grow: 1;
+    max-height: 150px;
+    overflow-y: auto; /* Vertikales Scrollen aktivieren */
+    margin-top: 20px; 
+    
+}
+.results_table_wrapper2 {
+    flex-grow: 1;
+    overflow-y: auto; /* Vertikales Scrollen aktivieren */
+    margin-top: 20px;
+}
+
+
+
+/* Tabelle bleibt in normaler Struktur */
+table {
+    width: 100%;
+}
+
+/* Fixiertes Tabellen-Header */
+thead {
+    position: sticky;
+    top: 0;
+    background-color: #004d99;
+    z-index: 2;
+}
+
+/* Inhaltsbereich scrollbar machen */
+tbody {
+    overflow-y: auto; /* Vertikales Scrollen */
+    max-height: 250px; /* Begrenzung */
+}
+
+
+th, td, tr {
+    padding: 6px;
+    font-size: 1em;
+    white-space: nowrap; /* Verhindert Umbrüche */
+    text-align: center;
+}
+
+tr:nth-child(even){background-color: #f2f2f2}
+
+tr {
+    border: 1px solid #ddd;
+}
+
+th {
+    background-color: #004d99;
+    color: white;
+    text-align: center;
+    border-radius: 4px;
+}
+
+/* Diagramm */
+.container_charts {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.chart {
+    width: 60%;
+    height: 400px;
+    background-color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: white;
+    font-size: 1.2em;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.table-button {
+    width: 100%;
+    padding: 15px;
+    background-color: white;
+    color: #004d99;
+    border: 1px solid #004d99;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    text-align: left;
+}
+
+.table-button:hover  {
+    background-color: #004d99;
+    color: white;
+    border: 1px solid #004d99;
+}
+
+/* Diagramm-Container in zwei Reihen */
+.container_charts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.chart {
+    width: 100%; /* 3 Diagramme in der ersten Reihe */
+    height: 700px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1em;
+}
+
+
+/* Stil für aktive Buttons */
+.button.active {
+    background-color: #004d99; /* Grün als Beispiel für aktiven Zustand */
+    color: white;
+}
+
+.station-button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+    background-color: #004d99;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    text-align: left;
+}
+
+.station-button:hover {
+    background-color: #003366;
+}
+
+#loadingOverlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 20%;
+    height: 20%;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; /* 🚀 Standardmäßig versteckt */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+    z-index: 10000;
+    transform: translate(-50%, -50%); /* ✅ Perfekt zentrieren */
+    border-radius: 10px; /* Optional: Abgerundete Ecken */
+    text-align: center;
+}
+
+
+.loader {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #003366;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
