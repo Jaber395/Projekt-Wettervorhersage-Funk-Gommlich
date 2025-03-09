@@ -1,15 +1,26 @@
+:root {
+    --color-primary: #004d99;
+    --color-primary-dark: #003366;
+    --color-background: #f9f9f9;
+    --color-white: #ffffff;
+    --color-text: #000000;
+    --color-border: #ddd;
+    --color-hover: #f2f2f2;
+    --color-overlay: rgba(0, 0, 0, 0.7);
+}
+
 /* Allgemeine Stile */
 body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #f9f9f9;
+    background-color: var(--color-background);
 }
 
 /* Header */
 .header {
-    background-color: #004d99;
-    color: white;
+    background-color: var(--color-primary);
+    color: var(--color-white);
     padding: 20px;
     text-align: center;
 }
@@ -20,54 +31,50 @@ body {
 }
 
 /* Layout für Such- und Ergebnisbereiche */
-.section_wrapper {
+.section-wrapper {
     display: flex;
     justify-content: space-between;
     margin-bottom: 20px;
 }
 
 /* Allgemeine Box-Stile */
-.section, .section_search, .section_results {
-    background: white;
+.section,
+.section-search,
+.section-results {
+    background: var(--color-white);
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     padding: 40px;
     box-sizing: border-box;
 }
 
-.section_search, .section_results {
+.section-search,
+.section-results {
     width: 49.5%;
 }
 
 /* Suchergebnisse begrenzen */
-.section_results {
+.section-results {
     max-height: 700px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Überschriften */
 h2 {
     margin-top: 0;
-    color: #004d99;
+    color: var(--color-primary);
     font-size: 1.8em;
 }
 
 /* Buttons */
-.button {
-    background-color: #004d99;
-    color: white;
+.button,
+.button-search {
+    background-color: var(--color-primary);
+    color: var(--color-white);
     padding: 15px 30px;
-    border: 1px solid #004d99;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1em;
-    display: block;
-    margin-top: 10px;
-}
-.button_search {
-    background-color: #004d99;
-    color: white;
-    padding: 15px 30px;
-    border: 1px solid #004d99;
+    border: 1px solid var(--color-primary);
     border-radius: 4px;
     cursor: pointer;
     font-size: 1em;
@@ -75,8 +82,9 @@ h2 {
     margin-top: 10px;
 }
 
-.button:hover {
-    background-color: #003366;
+.button:hover,
+.button-search:hover {
+    background-color: var(--color-primary-dark);
 }
 
 .button-container {
@@ -85,8 +93,14 @@ h2 {
     margin-top: 10px;
 }
 
+/* Stil für aktive Buttons */
+.button.active {
+    background-color: var(--color-primary);
+    color: var(--color-white);
+}
+
 /* Eingabefelder */
-.input-field, .input-date {
+.input-field {
     width: 60%;
     padding: 10px;
     margin: 10px 0;
@@ -95,10 +109,13 @@ h2 {
 
 .input-date {
     width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    box-sizing: border-box;
 }
 
 /* Datumsbereich */
-.section_date {
+.section-date {
     display: flex;
     gap: 20px;
 }
@@ -110,110 +127,68 @@ label {
     font-weight: bold;
 }
 
-/* Begrenzung des Ergebniscodes */
-.section_results {
-    max-height: 700px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
 /* Wrapper für scrollbare Tabelle */
-.results_table_wrapper {
+.results-buttons,
+.results-table {
     flex-grow: 1;
-    max-height: 150px;
-    overflow-y: auto; /* Vertikales Scrollen aktivieren */
-    margin-top: 20px; 
-    
-}
-.results_table_wrapper2 {
-    flex-grow: 1;
-    overflow-y: auto; /* Vertikales Scrollen aktivieren */
+    overflow-y: auto;
     margin-top: 20px;
 }
 
-
+.results-buttons {
+    max-height: 150px;
+}
 
 /* Tabelle bleibt in normaler Struktur */
 table {
     width: 100%;
 }
 
-/* Fixiertes Tabellen-Header */
 thead {
     position: sticky;
     top: 0;
-    background-color: #004d99;
+    background-color: var(--color-primary);
     z-index: 2;
 }
 
-/* Inhaltsbereich scrollbar machen */
 tbody {
-    overflow-y: auto; /* Vertikales Scrollen */
-    max-height: 250px; /* Begrenzung */
+    overflow-y: auto;
+    max-height: 250px;
 }
 
-
-th, td, tr {
+th,
+td,
+tr {
     padding: 6px;
     font-size: 1em;
-    white-space: nowrap; /* Verhindert Umbrüche */
+    white-space: nowrap;
     text-align: center;
 }
 
-tr:nth-child(even){background-color: #f2f2f2}
+tr:nth-child(even) {
+    background-color: var(--color-hover);
+}
 
 tr {
-    border: 1px solid #ddd;
+    border: 1px solid var(--color-border);
 }
 
 th {
-    background-color: #004d99;
-    color: white;
+    background-color: var(--color-primary);
+    color: var(--color-white);
     text-align: center;
     border-radius: 4px;
 }
 
-/* Diagramm */
-.container_charts {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 20px;
-}
-
-.chart {
-    width: 60%;
-    height: 400px;
-    background-color: white;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    color: white;
-    font-size: 1.2em;
-    margin-top: 20px;
-    margin-bottom: 20px;
-}
-
-.table-button {
+/* Map */
+#map {
+    height: 400px; 
     width: 100%;
-    padding: 15px;
-    background-color: white;
-    color: #004d99;
-    border: 1px solid #004d99;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1em;
-    text-align: left;
 }
 
-.table-button:hover  {
-    background-color: #004d99;
-    color: white;
-    border: 1px solid #004d99;
-}
 
-/* Diagramm-Container in zwei Reihen */
-.container_charts {
+/* Diagramme */
+.container-charts {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
@@ -221,28 +196,43 @@ th {
 }
 
 .chart {
-    width: 100%; /* 3 Diagramme in der ersten Reihe */
-    height: 700px;
+    width: 100%;
+    height: 800px;
+    background-color: var(--color-white);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1em;
+    margin-top: 20px;
+    margin-bottom: 20px;
 }
 
-
-/* Stil für aktive Buttons */
-.button.active {
-    background-color: #004d99; /* Grün als Beispiel für aktiven Zustand */
-    color: white;
+/* Buttons in Tabellen */
+.table-button {
+    width: 100%;
+    padding: 15px;
+    background-color: var(--color-white);
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    text-align: left;
 }
 
+.table-button:hover {
+    background-color: var(--color-primary);
+    color: var(--color-white);
+}
+
+/* Stationen Buttons */
 .station-button {
     display: block;
     width: 100%;
     padding: 10px;
     margin: 5px 0;
-    background-color: #004d99;
-    color: white;
+    background-color: var(--color-primary);
+    color: var(--color-white);
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -251,33 +241,34 @@ th {
 }
 
 .station-button:hover {
-    background-color: #003366;
+    background-color: var(--color-primary-dark);
 }
 
-#loadingOverlay {
+/* Lade-Overlay */
+#loading-overlay {
     position: fixed;
     top: 50%;
     left: 50%;
     width: 20%;
     height: 20%;
-    background: rgba(0, 0, 0, 0.7);
-    display: none; /* 🚀 Standardmäßig versteckt */
+    background: var(--color-overlay);
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: var(--color-white);
     font-size: 20px;
     font-weight: bold;
     z-index: 10000;
-    transform: translate(-50%, -50%); /* ✅ Perfekt zentrieren */
-    border-radius: 10px; /* Optional: Abgerundete Ecken */
+    transform: translate(-50%, -50%);
+    border-radius: 10px;
     text-align: center;
 }
 
-
+/* Spinner */
 .loader {
     border: 6px solid #f3f3f3;
-    border-top: 6px solid #003366;
+    border-top: 6px solid var(--color-primary-dark);
     border-radius: 50%;
     width: 50px;
     height: 50px;
@@ -289,4 +280,3 @@ th {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
-

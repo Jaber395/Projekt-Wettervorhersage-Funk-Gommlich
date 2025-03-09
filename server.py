@@ -19,22 +19,24 @@ WEATHER_DATA_DIR = "ghcn_weather"
 # Ordner für Wetterdaten anlegen
 os.makedirs(WEATHER_DATA_DIR, exist_ok=True)
 
+# Stationsdaten herunterlade
 def download_station_file():
     if not os.path.exists(STATIONS_FILE):
-        print("📥 Lade Stationsdatei herunter...")
+        print("Lade Stationsdatei herunter...")
         try:
             response = requests.get(STATIONS_URL, timeout=15)
             response.raise_for_status()
             with open(STATIONS_FILE, "wb") as file:
                 file.write(response.content)
-            print("✅ Stationsdatei erfolgreich gespeichert.")
+            print("Stationsdatei erfolgreich gespeichert.")
         except requests.exceptions.RequestException as e:
-            print("❌ Fehler beim Herunterladen der Stationsdatei:", e)
+            print("Fehler beim Herunterladen der Stationsdatei:", e)
 
+# Stationsdaten aufbereiten
 def parse_stations():
     stations = []
     if not os.path.exists(STATIONS_FILE):
-        print(f"❌ Stationsdatei {STATIONS_FILE} nicht gefunden!")
+        print(f"Stationsdatei {STATIONS_FILE} nicht gefunden!")
         return stations
 
     with open(STATIONS_FILE, "r", encoding="utf-8") as f:
@@ -49,6 +51,7 @@ def parse_stations():
                 continue
     return stations
 
+# Abstand von zwei Koordinaten ausrechnen
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371
     dlat = math.radians(lat2 - lat1)
@@ -60,10 +63,11 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
+# Wetterdaten der gefundenen Stationen herunterladen
 def download_weather_data(station_id):
     file_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.dly")
     if os.path.exists(file_path):
-        print(f"📂 {station_id}.dly existiert bereits.")
+        print(f"{station_id}.dly existiert bereits.")
         return
     
     url = f"{BASE_WEATHER_URL}{station_id}.dly"
@@ -73,19 +77,21 @@ def download_weather_data(station_id):
         with open(file_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-        print(f"✅ Wetterdaten für {station_id} gespeichert.")
+        print(f"Wetterdaten für {station_id} gespeichert.")
     except requests.exceptions.RequestException as e:
-        print(f"❌ Fehler beim Download von {station_id}: {e}")
+        print(f"Fehler beim Download von {station_id}: {e}")
 
+# Mehrere Wetterdateien gleichzeitig herunterladen
 def download_weather_data_for_stations(station_ids):
     with ThreadPoolExecutor(max_workers=5) as executor:
         executor.map(download_weather_data, station_ids)
 
+# Bei Aufruf von localhost:8080 index.html öffnen
 @app.route('/')
 def index():
-    # Liefert beim Aufruf von http://localhost:5000/ deine index.html
     return send_from_directory('.', 'index.html')
 
+# Suche der Stationen anhand der eingegebenen Daten
 @app.route("/search_stations", methods=["GET"])
 def search_stations():
     try:
@@ -110,6 +116,7 @@ def search_stations():
 
     return jsonify(selected_stations)
 
+# Daten der zutreffenden Stationen holen und aufbereiten
 @app.route("/get_station_data", methods=["GET"])
 def get_station_data():
     station_id = request.args.get("station_id")
@@ -150,7 +157,6 @@ def get_station_data():
             year = int(line[11:15])
             month = int(line[15:17])
 
-            # Meteorologische Jahreszeiten
             if month in [12, 1, 2]:
                 season = "Winter"
                 season_year = year if month != 12 else year + 1
@@ -170,7 +176,6 @@ def get_station_data():
             if not (start_year <= year <= end_year):
                 continue
 
-            # Nur gültige Werte
             values = [int(line[i:i+5].strip()) for i in range(21, 261, 8)
                       if line[i:i+5].strip() != "-9999"]
             if not values:

@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // 🌍 Karte initialisieren
-    const map = L.map('map').setView([48.7758, 9.1829], 6);
+    // Karte initialisieren
+    const map = L.map('map').setView([48.064869, 8.535076], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let currentCircle = null;
     let centerMarker = null;
 
+    // Markierungen auf der Karte hinzufügen
     function addStationMarker(lat, lng, name, stationId) {
         const marker = L.marker([lat, lng], {
             icon: L.icon({ 
@@ -21,6 +22,7 @@ document.addEventListener("DOMContentLoaded", function () {
         currentMarkers.push(marker);
     }
 
+    // Karte leeren
     function clearMap() {
         currentMarkers.forEach(marker => map.removeLayer(marker));
         currentMarkers = [];
@@ -35,17 +37,18 @@ document.addEventListener("DOMContentLoaded", function () {
             centerMarker = null;
         }
     
-        document.getElementById("resultsContainer").innerHTML = "";
+        document.getElementById("results-container").innerHTML = "";
     
-        document.getElementById("stationTitle").innerText = "Stationsdetails";
+        document.getElementById("station-title").innerText = "Stationsdetails";
     
-        document.getElementById("stationDataTableBody").innerHTML = "<tr><td colspan='11'>Keine Daten verfügbar</td></tr>";
+        document.getElementById("station-table-body").innerHTML = "<tr><td colspan='11'>Keine Daten verfügbar</td></tr>";
     
         temperatureChart.data.labels = [];
         temperatureChart.data.datasets.forEach(dataset => dataset.data = []);
         temperatureChart.update();
     }
     
+    // Eingabedaten holen und verarbeiten
     document.querySelector(".button").addEventListener("click", function () {
         const lat = parseFloat(document.getElementById("latitude").value);
         const lon = parseFloat(document.getElementById("longitude").value);
@@ -70,13 +73,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 })
             }).addTo(map).bindPopup(`<b>Mittelpunkt</b><br>(${lat.toFixed(5)}, ${lon.toFixed(5)})`);
     
-            // ⬇️ Port 8080 statt 5000
             fetch(`http://localhost:8080/search_stations?lat=${lat}&lon=${lon}&radius=${radius}&max=${maxStations}`)
                 .then(response => response.json())
                 .then(data => {
                     hideLoading();
     
-                    const resultsContainer = document.getElementById("resultsContainer");
+                    const resultsContainer = document.getElementById("results-container");
                     data.forEach(station => {
                         addStationMarker(station.lat, station.lon, station.name, station.id);
                         const stationButton = document.createElement("button");
@@ -100,15 +102,18 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
    
+    // Lade Overlay anzeigen
     function showLoading() {
-        document.getElementById("loadingOverlay").style.display = "flex";
+        document.getElementById("loading-overlay").style.display = "flex";
     }
     
+    // Lade Overlay ausblenden
     function hideLoading() {
-        document.getElementById("loadingOverlay").style.display = "none";
+        document.getElementById("loading-overlay").style.display = "none";
     }
-
-    const ctx = document.getElementById('temperatureChart').getContext('2d');
+    
+    //  Chart initiieren
+    const ctx = document.getElementById('temp-chart').getContext('2d');
     const temperatureChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -131,33 +136,15 @@ document.addEventListener("DOMContentLoaded", function () {
             scales: {
                 x: { title: { display: true, text: 'Jahr' } },
                 y: { title: { display: true, text: 'Temperatur (°C)' } }
-            },
-            plugins: {
-                legend: {
-                    labels: {
-                        generateLabels: function(chart) {
-                            let labels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
-        
-                            // Die ersten zwei Einträge separat setzen, der Rest kommt in eine neue Zeile
-                            labels.forEach((label, index) => {
-                                if (index >= 2) {
-                                    label.text = '\n' + label.text; // Fügt einen Zeilenumbruch hinzu
-                                }
-                            });
-        
-                            return labels;
-                        }
-                    }
-                }
             }
         }
     });
 
+    // Stationsdaten holen und verarbeiten
     function fetchStationData(stationId) {
-        const startYear = document.getElementById("year_start").value;
-        const endYear = document.getElementById("year_end").value;
-    
-        // ⬇️ Port 8080 statt 5000
+        const startYear = document.getElementById("year-start").value;
+        const endYear = document.getElementById("year-end").value;
+
         fetch(`http://localhost:8080/get_station_data?station_id=${stationId}&start_year=${startYear}&end_year=${endYear}`)
             .then(response => response.json())
             .then(data => {
@@ -167,7 +154,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     return;
                 }
                 
-                document.getElementById("stationTitle").innerText = `Stationsdetails: ${data.name}`;
+                document.getElementById("station-title").innerText = `Stationsdetails: ${data.name}`;
     
                 const labels = Object.keys(data.years);
                 const yearsArray = Object.entries(data.years).map(([year, values]) => ({
@@ -209,8 +196,9 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     }
     
+    // Tabelle aktualisieren
     function updateTable(data) {
-        let tableBody = document.getElementById("stationDataTableBody");
+        let tableBody = document.getElementById("station-table-body");
         tableBody.innerHTML = "";
     
         if (!data.years || Object.keys(data.years).length === 0) {
@@ -237,8 +225,9 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
     
-    const startYearSelect = document.getElementById("year_start");
-    const endYearSelect = document.getElementById("year_end");
+    // Dropdown-Menü für Jahreseingabe erstellen
+    const startYearSelect = document.getElementById("year-start");
+    const endYearSelect = document.getElementById("year-end");
     const currentYear = new Date().getFullYear();
 
     for (let year = 1900; year <= 2100; year++) {
