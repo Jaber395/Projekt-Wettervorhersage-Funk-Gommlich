@@ -131,6 +131,24 @@ document.addEventListener("DOMContentLoaded", function () {
             scales: {
                 x: { title: { display: true, text: 'Jahr' } },
                 y: { title: { display: true, text: 'Temperatur (°C)' } }
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        generateLabels: function(chart) {
+                            let labels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+        
+                            // Die ersten zwei Einträge separat setzen, der Rest kommt in eine neue Zeile
+                            labels.forEach((label, index) => {
+                                if (index >= 2) {
+                                    label.text = '\n' + label.text; // Fügt einen Zeilenumbruch hinzu
+                                }
+                            });
+        
+                            return labels;
+                        }
+                    }
+                }
             }
         }
     });
