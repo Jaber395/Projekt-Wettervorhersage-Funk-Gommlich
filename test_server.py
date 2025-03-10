@@ -9,6 +9,7 @@ from unittest.mock import patch, MagicMock
 import sys
 import importlib.util
 from pathlib import Path
+from collections import defaultdict
 
 # Dynamisch server.py importieren (falls nicht im PYTHONPATH)
 try:
@@ -66,6 +67,30 @@ def mock_stations():
         {"id": "TEST002", "lat": 34.0522, "lon": -118.2437, "name": "Test Station 2"},
         {"id": "TEST003", "lat": 41.8781, "lon": -87.6298, "name": "Test Station 3"}
     ]
+
+
+@pytest.fixture
+def stuttgart_station():
+    """Create Stuttgart-Schnarrenberg station data for testing."""
+    return {
+        "id": "GME0011515771",
+        "lat": 48.8292,
+        "lon": 9.2008,
+        "name": "STUTTGART - SCHNARRENBERG",
+        "distance": 19.04
+    }
+
+
+@pytest.fixture
+def expected_stuttgart_data_2024():
+    """Expected data for Stuttgart-Schnarrenberg in 2024."""
+    return {
+        "ganzes_jahr": {"avg_TMIN": 8.4, "avg_TMAX": 16.6},
+        "spring": {"avg_TMIN": 7.5, "avg_TMAX": 16.6},
+        "summer": {"avg_TMIN": 15.2, "avg_TMAX": 25.7},
+        "autumn": {"avg_TMIN": 8.1, "avg_TMAX": 15.5},
+        "winter": {"avg_TMIN": 2.7, "avg_TMAX": 8.5}
+    }
 
 
 def create_test_station_file(stations):
@@ -199,46 +224,9 @@ def test_search_stations_endpoint(mock_download, client, mock_stations):
     mock_download.assert_called()
 
 
-
-def get_station_data():
-    station_id = request.args.get("station_id")
-    start_year = request.args.get("start_year")
-    end_year = request.args.get("end_year")
-
-    # Hier werden u.a. Validierung, Stationssuche und das Einlesen der Wetterdaten durchgeführt...
-    # Für dieses Beispiel nehmen wir an, dass wir die Station und ihren Namen gefunden haben:
-    station_name = "Test Station 1"  # z. B. per Lookup anhand station_id
-
-    # Erstelle das Jahres-Daten-Dictionary
-    years = {}
-    for year in range(int(start_year), int(end_year) + 1):
-        year_str = str(year)
-        # Hier solltest du die echte Berechnung einsetzen,
-        # als Platzhalter liefern wir Dummy-Daten:
-        years[year_str] = {
-            "avg_TMAX": 0,  # Berechne den durchschnittlichen TMAX-Wert
-            "avg_TMIN": 0,  # Berechne den durchschnittlichen TMIN-Wert
-            "seasons": {
-                "Winter": {"avg_TMAX": 0, "avg_TMIN": 0},
-                "Spring": {"avg_TMAX": 0, "avg_TMIN": 0},
-                "Summer": {"avg_TMAX": 0, "avg_TMIN": 0},
-                "Autumn": {"avg_TMAX": 0, "avg_TMIN": 0}
-            }
-        }
-
-    # Baue das Antwort-Dictionary auf
-    response_data = {
-        "station": station_id,
-        "name": station_name,
-        "years": years
-    }
-    return jsonify(response_data)
-
-
 @patch('server.download_station_file')
 @patch('server.parse_stations')
 def test_initialization(mock_parse, mock_download):
-
     """Test the initialization process."""
     # Ensure required functions exist
     assert hasattr(server, 'download_station_file'), "server module has no download_station_file function"
@@ -251,3 +239,105 @@ def test_initialization(mock_parse, mock_download):
     # Verify that the functions were called
     mock_download.assert_called_once()
     mock_parse.assert_called_once()
+
+
+@patch('builtins.open', new_callable=MagicMock)
+@patch('collections.defaultdict')
+def test_stuttgart_weather_data_2024(mock_defaultdict, mock_open, client, stuttgart_station,
+                                     expected_stuttgart_data_2024):
+    """Testet, ob die korrekten Wetterdaten für Stuttgart 2024 zurückgegeben werden."""
+    # Sicherstellen, dass die Funktion existiert
+    assert hasattr(server, 'get_station_data'), "server module has no get_station_data function"
+
+    # Vorbereiten eines Mock-Ergebnisses basierend auf den PDF-Daten
+    mock_data = defaultdict(lambda: {
+        "avg_TMAX": 0, "count_TMAX": 0,
+        "avg_TMIN": 0, "count_TMIN": 0,
+        "seasons": {
+            "Winter": {"avg_TMAX": 0, "count_TMAX": 0, "avg_TMIN": 0, "count_TMIN": 0},
+            "Spring": {"avg_TMAX": 0, "count_TMAX": 0, "avg_TMIN": 0, "count_TMIN": 0},
+            "Summer": {"avg_TMAX": 0, "count_TMAX": 0, "avg_TMIN": 0, "count_TMIN": 0},
+            "Autumn": {"avg_TMAX": 0, "count_TMAX": 0, "avg_TMIN": 0, "count_TMIN": 0}
+        }
+    })
+
+    # 2024 Gesamtjahresdaten
+    mock_data[2024]["avg_TMAX"] = expected_stuttgart_data_2024["ganzes_jahr"]["avg_TMAX"] * 100  # Simuliere die Summe
+    mock_data[2024]["count_TMAX"] = 100  # Simuliere die Anzahl der Messungen
+    mock_data[2024]["avg_TMIN"] = expected_stuttgart_data_2024["ganzes_jahr"]["avg_TMIN"] * 100
+    mock_data[2024]["count_TMIN"] = 100
+
+    # Frühlingsdaten
+    mock_data[2024]["seasons"]["Spring"]["avg_TMAX"] = expected_stuttgart_data_2024["spring"]["avg_TMAX"] * 30
+    mock_data[2024]["seasons"]["Spring"]["count_TMAX"] = 30
+    mock_data[2024]["seasons"]["Spring"]["avg_TMIN"] = expected_stuttgart_data_2024["spring"]["avg_TMIN"] * 30
+    mock_data[2024]["seasons"]["Spring"]["count_TMIN"] = 30
+
+    # Sommerdaten
+    mock_data[2024]["seasons"]["Summer"]["avg_TMAX"] = expected_stuttgart_data_2024["summer"]["avg_TMAX"] * 30
+    mock_data[2024]["seasons"]["Summer"]["count_TMAX"] = 30
+    mock_data[2024]["seasons"]["Summer"]["avg_TMIN"] = expected_stuttgart_data_2024["summer"]["avg_TMIN"] * 30
+    mock_data[2024]["seasons"]["Summer"]["count_TMIN"] = 30
+
+    # Herbstdaten
+    mock_data[2024]["seasons"]["Autumn"]["avg_TMAX"] = expected_stuttgart_data_2024["autumn"]["avg_TMAX"] * 30
+    mock_data[2024]["seasons"]["Autumn"]["count_TMAX"] = 30
+    mock_data[2024]["seasons"]["Autumn"]["avg_TMIN"] = expected_stuttgart_data_2024["autumn"]["avg_TMIN"] * 30
+    mock_data[2024]["seasons"]["Autumn"]["count_TMIN"] = 30
+
+    # Winterdaten
+    mock_data[2024]["seasons"]["Winter"]["avg_TMAX"] = expected_stuttgart_data_2024["winter"]["avg_TMAX"] * 30
+    mock_data[2024]["seasons"]["Winter"]["count_TMAX"] = 30
+    mock_data[2024]["seasons"]["Winter"]["avg_TMIN"] = expected_stuttgart_data_2024["winter"]["avg_TMIN"] * 30
+    mock_data[2024]["seasons"]["Winter"]["count_TMIN"] = 30
+
+    # Mock der defaultdict-Funktion, um unser mock_data zurückzugeben
+    mock_defaultdict.return_value = mock_data
+
+    # Station im Server setzen
+    server.stations = [stuttgart_station]
+
+    # Erstellen einer leeren Wetterdatei für die Station
+    file_path = os.path.join(server.WEATHER_DATA_DIR, f"{stuttgart_station['id']}.dly")
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write("")
+
+    # Die Funktion mit test_client aufrufen
+    with client.application.test_request_context(
+            f'/get_station_data?station_id={stuttgart_station["id"]}&start_year=2024&end_year=2024'
+    ):
+        response = server.get_station_data()
+
+    # JSON-Antwort auswerten
+    response_data = json.loads(response.get_data(as_text=True))
+
+    # Überprüfen, ob die Station korrekt ist
+    assert response_data["station"] == stuttgart_station["id"]
+    assert response_data["name"] == stuttgart_station["name"]
+
+    # Überprüfen, ob 2024 in den Jahren enthalten ist
+    assert "2024" in response_data["years"]
+
+    # Überprüfen der Jahreswerte
+    year_data = response_data["years"]["2024"]
+    assert abs(year_data["avg_TMAX"] - expected_stuttgart_data_2024["ganzes_jahr"]["avg_TMAX"]) < 0.1
+    assert abs(year_data["avg_TMIN"] - expected_stuttgart_data_2024["ganzes_jahr"]["avg_TMIN"]) < 0.1
+
+    # Überprüfen der Saisonwerte
+    seasons_data = year_data["seasons"]
+
+    # Frühling
+    assert abs(seasons_data["Spring"]["avg_TMAX"] - expected_stuttgart_data_2024["spring"]["avg_TMAX"]) < 0.1
+    assert abs(seasons_data["Spring"]["avg_TMIN"] - expected_stuttgart_data_2024["spring"]["avg_TMIN"]) < 0.1
+
+    # Sommer
+    assert abs(seasons_data["Summer"]["avg_TMAX"] - expected_stuttgart_data_2024["summer"]["avg_TMAX"]) < 0.1
+    assert abs(seasons_data["Summer"]["avg_TMIN"] - expected_stuttgart_data_2024["summer"]["avg_TMIN"]) < 0.1
+
+    # Herbst
+    assert abs(seasons_data["Autumn"]["avg_TMAX"] - expected_stuttgart_data_2024["autumn"]["avg_TMAX"]) < 0.1
+    assert abs(seasons_data["Autumn"]["avg_TMIN"] - expected_stuttgart_data_2024["autumn"]["avg_TMIN"]) < 0.1
+
+    # Winter
+    assert abs(seasons_data["Winter"]["avg_TMAX"] - expected_stuttgart_data_2024["winter"]["avg_TMAX"]) < 0.1
+    assert abs(seasons_data["Winter"]["avg_TMIN"] - expected_stuttgart_data_2024["winter"]["avg_TMIN"]) < 0.1
