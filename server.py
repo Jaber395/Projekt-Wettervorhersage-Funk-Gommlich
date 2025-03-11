@@ -83,7 +83,7 @@ def download_weather_data(station_id):
 
 # Mehrere Wetterdateien gleichzeitig herunterladen
 def download_weather_data_for_stations(station_ids):
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         executor.map(download_weather_data, station_ids)
 
 # Bei Aufruf von localhost:8080 index.html öffnen
@@ -91,7 +91,52 @@ def download_weather_data_for_stations(station_ids):
 def index():
     return send_from_directory('.', 'index.html')
 
-# Suche der Stationen anhand der eingegebenen Daten
+def has_complete_data_for_years(station_id, start_year, end_year):
+    file_path = os.path.join(WEATHER_DATA_DIR, f"{station_id}.dly")
+    
+    if not os.path.exists(file_path):
+        return False
+    
+    # Flags für beide Jahre und beide Elemente
+    has_start_TMAX = False
+    has_start_TMIN = False
+    has_end_TMAX = False
+    has_end_TMIN = False
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            element = line[17:21]
+            year = int(line[11:15])
+
+            if element not in ["TMAX", "TMIN"]:
+                continue
+            
+            if year == start_year:
+                values = [int(line[i:i+5].strip()) for i in range(21, 269, 8)
+                          if line[i:i+5].strip() != "-9999"]
+                if values:
+                    if element == "TMAX":
+                        has_start_TMAX = True
+                    elif element == "TMIN":
+                        has_start_TMIN = True
+
+            if year == end_year:
+                values = [int(line[i:i+5].strip()) for i in range(21, 269, 8)
+                          if line[i:i+5].strip() != "-9999"]
+                if values:
+                    if element == "TMAX":
+                        has_end_TMAX = True
+                    elif element == "TMIN":
+                        has_end_TMIN = True
+
+            # Wenn alle Bedingungen erfüllt sind, können wir abbrechen
+            if has_start_TMAX and has_start_TMIN and has_end_TMAX and has_end_TMIN:
+                return True
+
+    # Rückgabe, wenn alle Bedingungen erfüllt sind
+    return has_start_TMAX and has_start_TMIN and has_end_TMAX and has_end_TMIN
+
+
 @app.route("/search_stations", methods=["GET"])
 def search_stations():
     try:
@@ -99,22 +144,40 @@ def search_stations():
         lon = float(request.args.get("lon"))
         radius = float(request.args.get("radius", 50))
         max_results = int(request.args.get("max", 10))
+        start_year = int(request.args.get("start_year", 1900))
+        end_year = int(request.args.get("end_year", 2100))
     except (TypeError, ValueError):
         return jsonify({"error": "Ungültige Parameter"}), 400
 
+    # 1. Stationen im Radius suchen
     nearby_stations = [
         {**station, "distance": round(haversine(lat, lon, station["lat"], station["lon"]), 2)}
         for station in stations if haversine(lat, lon, station["lat"], station["lon"]) <= radius
     ]
+    
+    # 2. Nach Entfernung sortieren
     nearby_stations.sort(key=lambda x: x["distance"])
-    selected_stations = nearby_stations[:max_results]
 
-    station_ids = [station["id"] for station in selected_stations]
+    # 3. Wetterdaten herunterladen (für alle Stationen im Radius)
+    station_ids = [station["id"] for station in nearby_stations]
     shutil.rmtree(WEATHER_DATA_DIR)
     os.makedirs(WEATHER_DATA_DIR)
     download_weather_data_for_stations(station_ids)
 
-    return jsonify(selected_stations)
+    # 4. Stationen filtern, die vollständige Daten haben (TMAX + TMIN in Start- UND Endjahr)
+    valid_stations = []
+    for station in nearby_stations:
+        station_id = station["id"]
+        if has_complete_data_for_years(station_id, start_year, end_year):
+            valid_stations.append(station)
+
+        # Abbrechen, wenn max_results erreicht
+        if len(valid_stations) >= max_results:
+            break
+
+    return jsonify(valid_stations)
+
+
 
 # Daten der zutreffenden Stationen holen und aufbereiten
 @app.route("/get_station_data", methods=["GET"])
@@ -151,12 +214,13 @@ def get_station_data():
     with open(file_path, "r", encoding="utf-8") as f:
         for line in f:
             element = line[17:21]
-            if element not in ["TMAX", "TMIN", "TAVG"]:
+            if element not in ["TMAX", "TMIN"]:
                 continue
 
             year = int(line[11:15])
             month = int(line[15:17])
 
+            # Season und Season-Year bestimmen
             if month in [12, 1, 2]:
                 season = "Winter"
                 season_year = year if month != 12 else year + 1
@@ -170,66 +234,66 @@ def get_station_data():
                 season = "Autumn"
                 season_year = year
 
-            if season == "Winter" and season_year > end_year:
-                continue
-
+            # ➡️ Jahreswerte sollen immer das Jahr prüfen, nicht das Season-Jahr
             if not (start_year <= year <= end_year):
                 continue
 
-            values = [int(line[i:i+5].strip()) for i in range(21, 261, 8)
-                      if line[i:i+5].strip() != "-9999"]
+            # ➡️ Seasons sollen aussteigen, wenn Winter ins Folgejahr geht
+            skip_season = season == "Winter" and season_year > end_year
+
+            # Werte extrahieren (alle Tage)
+            values = [int(line[i:i+5].strip()) for i in range(21, 269, 8)
+                    if line[i:i+5].strip() != "-9999"]
+
             if not values:
                 continue
 
+            # 🟢 Jahreswerte → IMMER year verwenden (Dezember wird berücksichtigt)
             if element == "TMAX":
                 data_by_year[year]["avg_TMAX"] += sum(values) / 10.0
                 data_by_year[year]["count_TMAX"] += len(values)
-                data_by_year[season_year]["seasons"][season]["avg_TMAX"] += sum(values) / 10.0
-                data_by_year[season_year]["seasons"][season]["count_TMAX"] += len(values)
+
+                # 🔵 Seasons → Prüfen, ob Winter über das Endjahr geht
+                if not skip_season:
+                    data_by_year[season_year]["seasons"][season]["avg_TMAX"] += sum(values) / 10.0
+                    data_by_year[season_year]["seasons"][season]["count_TMAX"] += len(values)
 
             elif element == "TMIN":
                 data_by_year[year]["avg_TMIN"] += sum(values) / 10.0
                 data_by_year[year]["count_TMIN"] += len(values)
-                data_by_year[season_year]["seasons"][season]["avg_TMIN"] += sum(values) / 10.0
-                data_by_year[season_year]["seasons"][season]["count_TMIN"] += len(values)
 
-            elif element == "TAVG":
-                max_value = max(values) / 10.0
-                min_value = min(values) / 10.0
-                data_by_year[year]["avg_TMAX"] += max_value
-                data_by_year[year]["count_TMAX"] += 1
-                data_by_year[year]["avg_TMIN"] += min_value
-                data_by_year[year]["count_TMIN"] += 1
-                data_by_year[season_year]["seasons"][season]["avg_TMAX"] += max_value
-                data_by_year[season_year]["seasons"][season]["count_TMAX"] += 1
-                data_by_year[season_year]["seasons"][season]["avg_TMIN"] += min_value
-                data_by_year[season_year]["seasons"][season]["count_TMIN"] += 1
+                # 🔵 Seasons → Prüfen, ob Winter über das Endjahr geht
+                if not skip_season:
+                    data_by_year[season_year]["seasons"][season]["avg_TMIN"] += sum(values) / 10.0
+                    data_by_year[season_year]["seasons"][season]["count_TMIN"] += len(values)
+
+
 
     result_data = {"station": station_id, "name": station["name"], "years": {}}
     for year, data in data_by_year.items():
         if data["count_TMAX"] > 0:
-            yearly_avg_TMAX = round(data["avg_TMAX"] / data["count_TMAX"], 2)
+            yearly_avg_TMAX = round(data["avg_TMAX"] / data["count_TMAX"], 1)
         else:
             yearly_avg_TMAX = None
 
         if data["count_TMIN"] > 0:
-            yearly_avg_TMIN = round(data["avg_TMIN"] / data["count_TMIN"], 2)
+            yearly_avg_TMIN = round(data["avg_TMIN"] / data["count_TMIN"], 1)
         else:
             yearly_avg_TMIN = None
 
         year_data = {
             "avg_TMAX": yearly_avg_TMAX,
             "avg_TMIN": yearly_avg_TMIN,
-            "seasons": {}
+            "seasons": {},
         }
 
         for season, season_data in data["seasons"].items():
             if season_data["count_TMAX"] > 0:
-                avg_TMAX = round(season_data["avg_TMAX"] / season_data["count_TMAX"], 2)
+                avg_TMAX = round(season_data["avg_TMAX"] / season_data["count_TMAX"], 1)
             else:
                 avg_TMAX = None
             if season_data["count_TMIN"] > 0:
-                avg_TMIN = round(season_data["avg_TMIN"] / season_data["count_TMIN"], 2)
+                avg_TMIN = round(season_data["avg_TMIN"] / season_data["count_TMIN"], 1)
             else:
                 avg_TMIN = None
             if avg_TMAX is not None or avg_TMIN is not None:

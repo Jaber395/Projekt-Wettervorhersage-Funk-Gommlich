@@ -142,18 +142,27 @@ label {
 /* Tabelle bleibt in normaler Struktur */
 table {
     width: 100%;
+    background-color: white;
+    border-collapse: collapse;
+}
+
+.results-table {
+    flex-grow: 1;
+    overflow-y: auto;
+    max-height: 400px; /* Passt du an deine Bedürfnisse an */
+    margin-top: 20px;
 }
 
 thead {
     position: sticky;
     top: 0;
     background-color: var(--color-primary);
-    z-index: 2;
+    z-index: 0;
 }
 
-tbody {
-    overflow-y: auto;
-    max-height: 250px;
+thead th {
+    border: 3px solid white;
+    border-radius: 10px;
 }
 
 th,
@@ -161,7 +170,6 @@ td,
 tr {
     padding: 6px;
     font-size: 1em;
-    white-space: nowrap;
     text-align: center;
 }
 
@@ -169,15 +177,11 @@ tr:nth-child(even) {
     background-color: var(--color-hover);
 }
 
-tr {
-    border: 1px solid var(--color-border);
-}
-
 th {
     background-color: var(--color-primary);
     color: var(--color-white);
     text-align: center;
-    border-radius: 4px;
+    padding: 6px;
 }
 
 /* Map */
@@ -268,7 +272,7 @@ th {
 /* Spinner */
 .loader {
     border: 6px solid #f3f3f3;
-    border-top: 6px solid var(--color-primary-dark);
+    border-top: 6px solid var(--color-primary);
     border-radius: 50%;
     width: 50px;
     height: 50px;
