@@ -5,6 +5,7 @@ import server
 import os
 import math
 from flask import Flask, request, jsonify
+import shutil
 
 # Mocked station data for Stuttgart-Schnarrenberg
 STUTTGART_STATION = {
@@ -95,12 +96,16 @@ def print_debug_info(response):
 
 def test_search_stations_finds_stuttgart(app_client, mock_stations):
     # Test that our API returns the Stuttgart station when searching near its coordinates
-    with patch('server.haversine', return_value=19.04):
+    with patch('server.haversine', return_value=19.04), \
+         patch('server.has_complete_data_for_years', return_value=True), \
+         patch('server.download_weather_data_for_stations'), \
+         patch('shutil.rmtree'), \
+         patch('os.makedirs'):
         response = app_client.get('/search_stations?lat=48.83&lon=9.20&radius=50&max=10')
         data = json.loads(response.data)
 
         assert response.status_code == 200
-        assert len(data) == 1
+        assert len(data) == 1, f"Expected 1 station, got {len(data)}: {data}"
         assert data[0]['id'] == STUTTGART_STATION['id']
         assert data[0]['name'] == STUTTGART_STATION['name']
         assert abs(data[0]['distance'] - STUTTGART_STATION['distance']) < 0.1
