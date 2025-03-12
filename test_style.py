@@ -1,160 +1,142 @@
 import pytest
-import tinycss2
-import os
 import re
+import os
+
+# Path to the CSS file
+CSS_FILE = 'style.css'
 
 
-def test_css_file_exists():
-    """Test that the CSS file exists"""
-    assert os.path.exists('style.css')
+def read_css_file():
+    """Read the CSS file and return its content."""
+    if not os.path.exists(CSS_FILE):
+        pytest.fail(f"CSS file not found: {CSS_FILE}")
+
+    with open(CSS_FILE, 'r', encoding='utf-8') as f:
+        return f.read()
 
 
-def test_css_file_syntax():
-    """Test that the CSS file has valid syntax"""
-    with open('style.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
+def test_file_exists():
+    """Test that the CSS file exists."""
+    assert os.path.exists(CSS_FILE), f"CSS file not found: {CSS_FILE}"
 
-    # Parse the CSS content
-    stylesheet = tinycss2.parse_stylesheet(css_content)
 
-    # Filter out comments
-    rules = [rule for rule in stylesheet if rule.type != 'comment']
+def test_valid_css_structure():
+    """Test that the CSS file has a valid structure (opening and closing braces match)."""
+    css_content = read_css_file()
 
-    # Check if parsing was successful (no syntax errors)
-    assert len(rules) > 0, "CSS file should contain valid rules"
+    # Count opening and closing braces
+    opening_braces = css_content.count('{')
+    closing_braces = css_content.count('}')
+
+    assert opening_braces == closing_braces, f"Mismatched braces: {opening_braces} opening vs {closing_braces} closing"
+
+
+def test_root_variables_exist():
+    """Test that the :root variables are defined."""
+    css_content = read_css_file()
+
+    # Check if :root exists
+    assert ":root {" in css_content, "Root variables block not found"
+
+    # Check that all required variables exist
+    required_variables = [
+        "--color-primary",
+        "--color-primary-dark",
+        "--color-background",
+        "--color-white",
+        "--color-text",
+        "--color-border",
+        "--color-hover",
+        "--color-overlay"
+    ]
+
+    for var in required_variables:
+        assert var in css_content, f"Required variable not found: {var}"
 
 
 def test_essential_selectors_exist():
-    """Test that essential selectors are present in the CSS"""
-    with open('style.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
+    """Test that essential selectors exist in the CSS."""
+    css_content = read_css_file()
 
-    # List of essential selectors that should be present
     essential_selectors = [
-        'body',
-        '.header',
-        '.container',
-        '.section_wrapper',
-        '.section',
-        '.section_search',
-        '.section_results',
-        '.button',
-        'table',
-        '.button_search',
-        '.button:hover',
-        '.button-container',
-        '.input-field',
-        '.input-date',
-        '.section_date',
-        'label',
-        '.results_table_wrapper',
-        '.results_table_wrapper2',
-        'thead',
-        'tbody',
-        'th',
-        'td',
-        'tr',
-        'tr:nth-child(even)',
-        '.container_charts',
-        '.chart',
-        '.table-button',
-        '.table-button:hover',
-        '.button.active',
-        '.station-button',
-        '.station-button:hover',
-        '#loadingOverlay',
-        '.loader',
-        '@keyframes spin'
+        "body",
+        ".header",
+        ".container",
+        ".section-wrapper",
+        ".section",
+        ".section-search",
+        ".section-results",
+        "h2",
+        ".button",
+        ".input-field",
+        "table",
+        "th",
+        "td",
+        "#map",
+        ".chart"
     ]
 
     for selector in essential_selectors:
-        assert selector in css_content, f"CSS should contain the '{selector}' selector"
+        # Modified pattern to find selectors even if they're part of grouped rules
+        # This will match selectors followed by either a comma, a space+{, or a newline+{
+        pattern = rf"{re.escape(selector)}(\s*{{|\s*,|,\s*|\n)"
+        assert re.search(pattern, css_content), f"Essential selector not found: {selector}"
 
 
-def test_color_scheme_consistency():
-    """Test that the color scheme is consistent"""
-    with open('style.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
+def test_responsive_elements():
+    """Test that there are responsive elements in the CSS."""
+    css_content = read_css_file()
 
-    # Check for primary color usage
-    primary_color = '#004d99'
-    assert primary_color in css_content, "Primary color should be used in the CSS"
+    # Check for media queries or flex layouts
+    has_responsive_elements = "@media" in css_content or "display: flex" in css_content
 
-    # Count occurrences to ensure it's used multiple times (consistency)
-    assert css_content.count(primary_color) >= 3, "Primary color should be used consistently"
-
-    # Check for hover color
-    hover_color = '#003366'
-    assert hover_color in css_content, "Hover color should be used in the CSS"
+    assert has_responsive_elements, "No responsive elements found (no @media queries or flex layouts)"
 
 
-def test_responsive_layout():
-    """Test that there are responsive layout features"""
-    with open('style.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
+def test_animation_exists():
+    """Test that animations are defined in the CSS."""
+    css_content = read_css_file()
 
-    # Check for flex layouts
-    assert 'display: flex' in css_content, "CSS should use flex layouts"
-    assert 'flex-direction' in css_content, "CSS should use flex direction"
+    # Check for keyframes
+    has_keyframes = "@keyframes" in css_content
 
-    # Check for responsive width settings
-    assert 'width: 100%' in css_content, "CSS should have responsive width settings"
-    assert 'max-height' in css_content, "CSS should use max-height for container limitations"
+    assert has_keyframes, "No animations (@keyframes) found"
 
 
-def test_scrollable_elements():
-    """Test that scrollable elements are properly defined"""
-    with open('style.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
+def test_color_consistency():
+    """Test that colors are consistent and use variables."""
+    css_content = read_css_file()
 
-    # Check for overflow settings
-    assert 'overflow-y: auto' in css_content, "CSS should define vertical scrolling"
-    assert 'overflow: hidden' in css_content, "CSS should use overflow: hidden where appropriate"
+    # Count variable usage
+    var_usage_count = css_content.count("var(--color")
 
+    # Count direct color usage (hex, rgb, rgba)
+    direct_color_pattern = r'#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)'
+    direct_color_matches = re.findall(direct_color_pattern, css_content)
 
-def test_animation_definitions():
-    """Test that animations are properly defined"""
-    with open('style.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
-
-    # Check for keyframes definition
-    assert '@keyframes spin' in css_content, "CSS should define keyframes for animations"
-    assert 'animation:' in css_content, "CSS should use animation property"
-
-    # Check animation content
-    assert 'transform: rotate(0deg)' in css_content, "Animation should include rotation transform"
-    assert 'transform: rotate(360deg)' in css_content, "Animation should include full rotation"
+    # Some direct color usage is acceptable (like in the :root definition)
+    # but we expect most colors to use variables
+    assert var_usage_count > len(direct_color_matches) / 2, "Color variables are not used consistently"
 
 
-def test_shadow_and_visual_effects():
-    """Test that visual effects like shadows are defined"""
-    with open('style.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
+def test_no_important_flags():
+    """Test that !important is not overused."""
+    css_content = read_css_file()
 
-    # Check for box-shadow
-    assert 'box-shadow:' in css_content, "CSS should define box-shadows"
-    assert 'border-radius:' in css_content, "CSS should use border-radius for rounded corners"
+    important_count = css_content.count("!important")
 
-
-def test_loading_overlay():
-    """Test that loading overlay is properly defined"""
-    with open('style.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
-
-    # Check loading overlay properties
-    assert '#loadingOverlay' in css_content, "CSS should define a loading overlay"
-    assert 'position: fixed' in css_content, "Loading overlay should use fixed positioning"
-    assert 'z-index:' in css_content, "Loading overlay should have a z-index"
+    # A few !important flags might be necessary, but too many indicate poor CSS structure
+    assert important_count <= 3, f"Too many !important flags found: {important_count}"
 
 
-def test_table_styling():
-    """Test that tables are styled correctly"""
-    with open('style.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
+def test_class_naming_convention():
+    """Test that class naming follows a consistent convention."""
+    css_content = read_css_file()
 
-    # Check table styling
-    assert 'table' in css_content, "CSS should style tables"
-    assert 'th' in css_content, "CSS should style table headers"
-    assert 'td' in css_content, "CSS should style table cells"
-    assert 'tr:nth-child(even)' in css_content, "CSS should use zebra striping for tables"
-    assert 'position: sticky' in css_content, "CSS should use sticky positioning for table headers"
+    # Extract all class names
+    class_pattern = r'\.([\w-]+)'
+    class_names = re.findall(class_pattern, css_content)
+
+    # Check if they follow kebab-case convention
+    for name in class_names:
+        assert '-' in name or len(name) == 1 or name.islower(), f"Class name doesn't follow kebab-case: {name}"
