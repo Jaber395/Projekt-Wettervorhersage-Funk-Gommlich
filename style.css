@@ -7,6 +7,7 @@
     --color-border: #ddd;
     --color-hover: #f2f2f2;
     --color-overlay: rgba(0, 0, 0, 0.7);
+    --color-shadow: rgba(0, 0, 0, 0.1);
 }
 
 /* Allgemeine Stile */
@@ -43,7 +44,7 @@ body {
 .section-results {
     background: var(--color-white);
     border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px var(--color-shadow);
     padding: 40px;
     box-sizing: border-box;
 }
@@ -139,7 +140,7 @@ label {
     max-height: 150px;
 }
 
-/* Tabelle bleibt in normaler Struktur */
+/* Tabelle (Stationsdetails) */
 table {
     width: 100%;
     background-color: white;
@@ -149,7 +150,7 @@ table {
 .results-table {
     flex-grow: 1;
     overflow-y: auto;
-    max-height: 400px; /* Passt du an deine Bedürfnisse an */
+    max-height: 400px;
     margin-top: 20px;
 }
 
@@ -191,7 +192,7 @@ th {
 }
 
 
-/* Diagramme */
+/* Diagramm */
 .container-charts {
     display: flex;
     flex-wrap: wrap;
@@ -271,7 +272,7 @@ th {
 
 /* Spinner */
 .loader {
-    border: 6px solid #f3f3f3;
+    border: 6px solid var(--color-border);
     border-top: 6px solid var(--color-primary);
     border-radius: 50%;
     width: 50px;

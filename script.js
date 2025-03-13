@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", function () {
         temperatureChart.update();
     }
     
+    
     document.querySelector(".button").addEventListener("click", function () {
         const lat = parseFloat(document.getElementById("latitude").value);
         const lon = parseFloat(document.getElementById("longitude").value);
@@ -56,11 +57,13 @@ document.addEventListener("DOMContentLoaded", function () {
         
         const startYear = parseInt(document.getElementById("year-start").value);
         const endYear = parseInt(document.getElementById("year-end").value);
-    
+        
+        //Loader bei Suchvorgang anzeigen
         if (!isNaN(lat) && !isNaN(lon) && !isNaN(radius)) {
             clearMap();
             showLoading();
-    
+            
+            // Radius und Mittelpunkt auf der Karte einblenden
             currentCircle = L.circle([lat, lon], {
                 color: '#004d99',
                 fillColor: '#add8e6',
@@ -75,7 +78,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 })
             }).addTo(map).bindPopup(`<b>Mittelpunkt</b><br>(${lat.toFixed(5)}, ${lon.toFixed(5)})`);
     
-            // ➡️ Hier haben wir start_year und end_year ergänzt!
+            // Stationen mit Hilfe der Parameter suchen
             fetch(`http://localhost:8080/search_stations?lat=${lat}&lon=${lon}&radius=${radius}&max=${maxStations}&start_year=${startYear}&end_year=${endYear}`)
                 .then(response => response.json())
                 .then(data => {
@@ -106,7 +109,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     console.error("Fehler beim Abrufen der Daten:", error);
                 });
         } else {
-            alert("Bitte gültige Koordinaten, einen Radius und eine Anzahl eingeben!");
+            alert("Bitte gültige Koordinaten, einen Radius und eine Maximalanzahl eingeben!");
         }
     });
     
@@ -164,14 +167,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
     
                 document.getElementById("station-title").innerText = `Stationsdetails: ${data.name}`;
-    
-                // Vollständige Liste an Jahren erzeugen
+
                 const labels = [];
                 for (let year = startYear; year <= endYear; year++) {
                     labels.push(year.toString());
                 }
     
-                // Hilfsfunktion um die Daten zu füllen, fehlende Werte als null
                 function fillData(prop) {
                     return labels.map(year => {
                         const yearData = data.years[year];
@@ -179,7 +180,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     });
                 }
     
-                // Hilfsfunktion für Seasons-Daten
                 function fillSeasonData(season, prop) {
                     return labels.map(year => {
                         const yearData = data.years[year];
@@ -251,8 +251,8 @@ document.addEventListener("DOMContentLoaded", function () {
             let yearData = data.years[year];
             let row = `<tr>
                 <td>${year}</td>
-                <td>${yearData.avg_TMIN !== null ? yearData.avg_TMIN + "°C" : "-"}</td>
-                <td>${yearData.avg_TMAX !== null ? yearData.avg_TMAX + "°C" : "-"}</td>`;
+                <td>${yearData.avg_TMIN !== null ? yearData.avg_TMIN.toFixed(1) + "°C" : "-"}</td>
+                <td>${yearData.avg_TMAX !== null ? yearData.avg_TMAX.toFixed(1) + "°C" : "-"}</td>`;
     
             const seasons = [ "Spring", "Summer", "Autumn", "Winter"];
             
@@ -260,8 +260,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 let adjustedSeason = adjustSeasonForSouthernHemisphere(season);
                 let seasonData = yearData.seasons[adjustedSeason] || {};
                 
-                let minTemp = seasonData.avg_TMIN == null ? "-" : seasonData.avg_TMIN + "°C";
-                let maxTemp = seasonData.avg_TMAX == null ? "-" : seasonData.avg_TMAX + "°C";
+                let minTemp = seasonData.avg_TMIN == null ? "-" : seasonData.avg_TMIN.toFixed(1) + "°C";
+                let maxTemp = seasonData.avg_TMAX == null ? "-" : seasonData.avg_TMAX.toFixed(1) + "°C";
                 
                 row += `<td>${minTemp}</td><td>${maxTemp}</td>`;
             });
@@ -276,13 +276,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const endYearSelect = document.getElementById("year-end");
     const currentYear = new Date().getFullYear();
 
-    for (let year = 1900; year <= 2100; year++) {
+    for (let year = 1500; year <= 2024; year++) {
         let optionStart = new Option(year, year);
         let optionEnd = new Option(year, year);
         startYearSelect.appendChild(optionStart);
         endYearSelect.appendChild(optionEnd);
     }
 
-    startYearSelect.value = currentYear - 1;
-    endYearSelect.value = currentYear;
+    startYearSelect.value = currentYear - 2;
+    endYearSelect.value = currentYear - 1;
 });
