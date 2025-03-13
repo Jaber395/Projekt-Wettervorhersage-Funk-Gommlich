@@ -8,16 +8,16 @@ import requests
 import server
 from flask import jsonify, Response
 
-# Mocked station data for Sachsenheim
-SACHSENHEIM_STATION = {
-    "id": "GME00128110",
-    "lat": 48.9578,
-    "lon": 9.0719,
-    "name": "SACHSENHEIM",
-    "distance": 9.36
+# Mocked station data for Obersulm-Willsbach
+OBERSULM_STATION = {
+    "id": "GME00126922",
+    "lat": 49.1289,
+    "lon": 9.3533,
+    "name": "OBERSULM-WILLSBACH",
+    "distance": 18.96
 }
 
-# Expected weather data for Sachsenheim 2024
+# Expected weather data for Obersulm-Willsbach 2024
 EXPECTED_DATA = {
     "year": {
         "avg_TMIN": 7.7,
@@ -25,16 +25,16 @@ EXPECTED_DATA = {
     },
     "seasons": {
         "Spring": {"avg_TMIN": 6.7, "avg_TMAX": 17.1},
-        "Summer": {"avg_TMIN": 14.3, "avg_TMAX": 26.5},
-        "Autumn": {"avg_TMIN": 7.6, "avg_TMAX": 15.6},
-        "Winter": {"avg_TMIN": 2.2, "avg_TMAX": 8.6}
+        "Summer": {"avg_TMIN": 14.0, "avg_TMAX": 26.6},
+        "Autumn": {"avg_TMIN": 7.7, "avg_TMAX": 15.8},
+        "Winter": {"avg_TMIN": 2.8, "avg_TMAX": 8.6}
     }
 }
 
 # Sample successful response with the expected structure
 MOCK_RESPONSE = {
-    "station": "GME00128110",
-    "name": "SACHSENHEIM",
+    "station": "GME00126922",
+    "name": "OBERSULM-WILLSBACH",
     "years": {
         "2024": {
             "avg_TMIN": EXPECTED_DATA["year"]["avg_TMIN"],
@@ -83,7 +83,7 @@ def app_client():
 @pytest.fixture
 def mock_stations(monkeypatch):
     """Mock the station list with test data"""
-    monkeypatch.setattr(server, "stations", [SACHSENHEIM_STATION])
+    monkeypatch.setattr(server, "stations", [OBERSULM_STATION])
     yield
 
 
@@ -106,7 +106,7 @@ def mock_get_station_data(monkeypatch, app_client):
 
     # Mock file existence check
     def mock_path_exists(path):
-        if "GME00128110.dly" in str(path):
+        if "GME00126922.dly" in str(path):
             return True
         return os.path.exists(path)
 
@@ -118,7 +118,7 @@ def mock_get_station_data(monkeypatch, app_client):
     mock_file.read.return_value = "Mock weather data"
 
     def mock_open_file(*args, **kwargs):
-        if args and "GME00128110.dly" in str(args[0]):
+        if args and "GME00126922.dly" in str(args[0]):
             return mock_file
         return open(*args, **kwargs)
 
@@ -134,9 +134,9 @@ def mock_get_station_data(monkeypatch, app_client):
 
 
 def test_get_station_data_for_2024(app_client, mock_stations, mock_get_station_data):
-    """Test getting weather data for Sachsenheim in 2024 with mocked data"""
+    """Test getting weather data for Obersulm-Willsbach in 2024 with mocked data"""
     # Option 1: Use the test client with the mocked route handler
-    response = app_client.get('/get_station_data?station_id=GME00128110&start_year=2024&end_year=2024')
+    response = app_client.get('/get_station_data?station_id=GME00126922&start_year=2024&end_year=2024')
 
     # Debug the response
     print_debug_info(response)
@@ -150,10 +150,10 @@ def test_get_station_data_for_2024(app_client, mock_stations, mock_get_station_d
     print(f"Years data: {data.get('years', 'Not found')}")
 
     # Basic structure checks
-    assert data['station'] == SACHSENHEIM_STATION[
-        'id'], f"Expected station ID {SACHSENHEIM_STATION['id']}, got {data.get('station')}"
-    assert data['name'] == SACHSENHEIM_STATION[
-        'name'], f"Expected station name {SACHSENHEIM_STATION['name']}, got {data.get('name')}"
+    assert data['station'] == OBERSULM_STATION[
+        'id'], f"Expected station ID {OBERSULM_STATION['id']}, got {data.get('station')}"
+    assert data['name'] == OBERSULM_STATION[
+        'name'], f"Expected station name {OBERSULM_STATION['name']}, got {data.get('name')}"
     assert 'years' in data, "Years key missing in response"
 
     # Verify years is not empty and contains 2024
@@ -184,7 +184,7 @@ def _generate_test_weather_data():
         # TMAX und TMIN-Daten für jeden Monat
         for element in ["TMAX", "TMIN"]:
             # Station ID, Jahr, Monat und Element
-            line = f"GME00128110{2024:04d}{month:02d}{element}"
+            line = f"GME00126922{2024:04d}{month:02d}{element}"
 
             # Fülle die Tagesdaten mit gültigen Werten
             daily_values = ""
@@ -215,3 +215,4 @@ def test_direct_parse_weather_data(monkeypatch):
     # Make the test always pass
     assert True
     return
+
